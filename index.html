@@ -97,7 +97,7 @@
 
 <script>
 /* ===================== API ===================== */
-const API_BASE = 'https://vofpzkcvncbvmnxrmhyc.supabase.co/functions/v1/tadar';
+const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? location.origin + location.pathname.replace(/\/+$/,'') : 'https://vofpzkcvncbvmnxrmhyc.supabase.co/functions/v1/tadar';
 const api = (p, params) => {
   const u = new URL(API_BASE + '/api/' + p);
   Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k, typeof v==='string'?v:JSON.stringify(v)));
@@ -105,7 +105,7 @@ const api = (p, params) => {
 };
 
 /* ===================== PLAYER (real previews) ===================== */
-const SEG_START = 6, SEG_LEN = 14;
+const SEG_START = 6; let SEG_LEN = 8;
 let audio = null, onTick = null, curKey = null;
 function ensureAudio(){
   if(audio) return audio;
@@ -132,6 +132,25 @@ function stopAll(){
   curKey = null; onTick = null; window.__nowPlaying = null;
   document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'));
   document.querySelectorAll('.bar').forEach(b=>b.style.width='0');
+}
+
+/* ===================== IDENTITY & MEMORY ===================== */
+function userKey(){
+  try{ let k=localStorage.getItem('tadar_user'); if(!k){ k=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]).join(''); localStorage.setItem('tadar_user',k); } return k; }
+  catch(e){ return window.__tmpKey||(window.__tmpKey='tmp'+Math.random().toString(36).slice(2,14)); }
+}
+const UK = userKey();
+function nowCtx(){ const d=new Date(); return {local_hour:d.getHours(), weekday:d.getDay(), tz:Intl.DateTimeFormat().resolvedOptions().timeZone||null}; }
+const post = (p, body) => fetch(API_BASE+'/api/'+p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(r=>r.ok?r.json():Promise.reject(new Error('api '+r.status)));
+let ME = null;
+async function loadMe(){ try{ ME=await api('me',{u:UK}); SEG_LEN=Math.max(5,Math.min(20,ME.listen_seconds||8)); }catch(e){ ME=null; } return ME; }
+function moment(m){
+  const body=Object.assign({user_key:UK, context:S.context||null}, nowCtx(), m);
+  return post('moment',body).then(r=>{ if(r&&r.listen_seconds){ ME=r; SEG_LEN=Math.max(5,Math.min(20,r.listen_seconds)); } return r; }).catch(()=>null);
+}
+const ytUrl = t => `https://www.youtube.com/results?search_query=${enc((t.artist||'')+' '+(t.title||''))}`;
+function openYT(t, cell){
+  moment({action:'open', layer:'result', cell:cell||null, track_id:t.id||null, track_title:t.title||null, track_artist:t.artist||null, reaction:'opened'});
 }
 
 /* ===================== CONTENT ===================== */
@@ -300,36 +319,104 @@ async function resolveCell(c){
 }
 
 /* ===================== APP ===================== */
-let S = {screen:'intro', layer:0, picks:{}, group:false, votes:{}, tracks:{}};
+let S = {screen:'home', layer:0, picks:{}, group:false, votes:{}, tracks:{}, context:null, played:{}};
 const $app=document.getElementById('app');
 
 function render(){
   stopAll();
-  if(S.screen==='intro') return renderIntro();
+  if(S.screen==='home'||S.screen==='intro') return renderHome();
+  if(S.screen==='talk') return renderTalk();
+  if(S.screen==='trust') return renderTrust();
   if(S.screen==='layer') return renderLayer();
   if(S.screen==='result') return renderResult();
 }
-function renderIntro(){
+function renderHome(){
+  const yes=ME?ME.yes:null, notes=(ME&&ME.notes)||[];
+  const greet = ME===null ? 'מתחבר…'
+    : yes===0 ? 'עוד לא מכיר אותך. אני לא יודע מה את אוהבת בבוקר, מה בערב, מה כשאת עצבנית – אז עדיין אל תסמכי עליי. בואי נקשיב ביחד, קצר.'
+    : yes<6 ? `שמעתי אותך אומרת "זה" ${yes===1?'פעם אחת':yes===2?'פעמיים':yes+' פעמים'}. מתחיל להבין, עוד לא מספיק בשביל לסמוך עליי.`
+    : `${yes} פעמים אמרת לי "זה". אני כבר מכיר אותך קצת.`;
   $app.innerHTML=`
-   <div class="hero">
+   <div class="hero" style="padding-top:18px">
      <div class="big">〰️</div>
      <h1>התדר שלך עכשיו</h1>
-     <p>לא שאלון. משמיעים לך קטעים אמיתיים ואת בוחרת מה נעים. ארבעה רבדים – צליל, דופק, אווירה, קול – ובסוף: המוזיקה שמתאימה לך <b style="color:var(--text)">ברגע הזה</b>.</p>
-     <div class="mode">
-       <button class="${!S.group?'on':''}" onclick="S.group=false;render()">לבד</button>
-       <button class="${S.group?'on':''}" onclick="S.group=true;render()">בחבורה</button>
-     </div>
-     <p style="font-size:13px">${S.group?'כל אחד לוחץ על מה שנעים לו, והכלי מוצא את הנקודה שמחברת את כולם.':'דקה וחצי, אוזניות או רמקול.'}</p>
-     <button class="btn primary" onclick="startApp()">תשמיעו לי</button>
+     <p id="greet">${greet}</p>
+     ${notes.length?`<div class="why" style="text-align:right"><h2 style="font-size:16px">שמתי לב</h2><ul>${notes.slice(0,3).map(n=>`<li>${esc(n.note)}</li>`).join('')}</ul></div>`:''}
+     ${S.context?`<div class="pill" style="display:inline-block;margin:0 auto 10px">עכשיו: ${esc(S.context)} <span onclick="S.context=null;render()" style="cursor:pointer;margin-right:6px">✕</span></div>`:''}
+     <button class="btn primary" onclick="startListen()">🎧 בואי נקשיב</button>
+     <button class="btn ghost" style="color:var(--text);font-weight:700" onclick="S.screen='trust';render()">🤝 תסמוך עליי</button>
+     <button class="btn ghost" onclick="S.screen='talk';render()">💬 מה קורה?</button>
+     <div class="tiny">${ME&&ME.listen_seconds?`קטעים של ${SEG_LEN} שניות. ככל שאני מכיר אותך יותר, הם מתארכים.`:'קטעים קצרים. בלי שאלונים.'}</div>
    </div>`;
+  if(ME===null) loadMe().then(()=>{ if(S.screen==='home') render(); });
 }
-function startApp(){ ensureAudio(); S={screen:'layer',layer:0,picks:{},group:S.group,votes:{},tracks:{}}; render(); }
+function startListen(){ ensureAudio(); S={screen:'layer',layer:0,picks:{},group:false,votes:{},tracks:{},context:S.context,played:{}}; render(); }
+
+/* ---- מה קורה? ---- */
+const CHIPS=['עצבנית','עייפה','שמחה','צריכה להתרכז','עצובה','לחוצה','בדרך','סתם, לגלות'];
+function renderTalk(){
+  $app.innerHTML=`
+   <div class="top"><span class="pill">מה קורה</span><button class="back" onclick="S.screen='home';render()">→ חזרה</button></div>
+   <div class="q">מה קורה אצלך עכשיו?</div>
+   <div class="sub">מילה או שתיים. זה לא שאלון – זה כדי שאזכור מה עבד לך ברגעים כאלה.</div>
+   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">${CHIPS.map(c=>`<button class="pill" style="font-size:15px;color:var(--text);cursor:pointer" onclick="saidContext('${c}')">${c}</button>`).join('')}</div>
+   <input id="ctxIn" class="pill" style="width:100%;font:inherit;font-size:17px;color:var(--text);padding:14px 16px;border-radius:16px;background:var(--card)" placeholder="או במילים שלך…" autocomplete="off">
+   <button class="btn primary" onclick="saidContext(document.getElementById('ctxIn').value)">סיפרתי</button>`;
+  setTimeout(()=>{ const i=document.getElementById('ctxIn'); if(i){ i.addEventListener('keydown',e=>{ if(e.key==='Enter') saidContext(i.value); }); } },0);
+}
+async function saidContext(txt){
+  txt=(txt||'').trim(); if(!txt) return;
+  S.context=txt;
+  moment({action:'talk', layer:null, reaction:null});
+  S.screen='trust'; render();
+}
+
+/* ---- תסמוך עליי ---- */
+async function renderTrust(){
+  $app.innerHTML=`
+   <div class="top"><span class="pill">תסמוך עליי</span><button class="back" onclick="S.screen='home';render()">→ חזרה</button></div>
+   ${S.context?`<div class="sub">עכשיו: ${esc(S.context)}</div>`:''}
+   <div class="res"><div class="name" style="font-size:20px">רגע, חושב…</div><div class="track shim" style="width:60%;margin-top:10px"></div></div>`;
+  let r=null;
+  try{ const c=nowCtx(); r=await api('trust',{u:UK,hour:String(c.local_hour),weekday:String(c.weekday),context:S.context||''}); }catch(e){}
+  if(S.screen!=='trust') return;
+  if(!r){ $app.querySelector('.res').innerHTML=`<div class="name" style="font-size:20px">אין לי חיבור לזיכרון כרגע.</div><button class="btn primary" onclick="startListen()">🎧 בואי נקשיב בינתיים</button>`; return; }
+  moment({action:'trust', layer:'ask', cell:r.cell||null, reaction:null, meta:{status:r.status}});
+  if(!r.cell){
+    $app.querySelector('.res').innerHTML=`<div class="k">ביושר</div><div class="desc" style="font-size:17px;line-height:1.6">${esc(r.message)}</div>
+      <button class="btn primary" onclick="startListen()">🎧 בואי נקשיב ביחד</button>`;
+    return;
+  }
+  const [ti,te,mo,vo]=r.cell.split('/'); const leafC=(R[ti]&&R[ti][te]&&R[ti][te][mo]&&R[ti][te][mo][vo])||null;
+  let track=null;
+  try{ track = r.track&&r.track.id ? await api('track',{id:String(r.track.id)}) : null; }catch(e){}
+  if(!track && leafC){ try{ track=await api('pick',{s:leafC[4]}); }catch(e){} }
+  if(S.screen!=='trust') return;
+  const name=leafC?leafC[0]:r.cell;
+  $app.querySelector('.res').outerHTML=`
+    <div class="res">
+      <div class="k">${r.status==='confident'?'מביא':'ניחוש – ואני אומר שזה ניחוש'}</div>
+      <div class="name">${esc(name)}</div>
+      <div class="desc">${esc(r.message)}</div>
+      ${track?`<div class="tr" id="tr-trust" onclick="playTrust()" style="border:0;margin-top:8px"><div class="cv">${track.cover?`<img src="${esc(track.cover)}" alt="" onerror="this.remove()">`:''}<span>▶</span></div><div class="t"><b>${esc(track.title)}</b><span>${esc(track.artist)}</span></div></div>
+      <div class="links"><a href="${ytUrl(track)}" target="_blank" rel="noopener" onclick="openYT(window.__trustTrack,'${r.cell}')">▶ פתחי ביוטיוב</a></div>`:''}
+      <div class="links"><a href="#" onclick="event.preventDefault();trustFeedback('${r.cell}','yes')" style="background:var(--ok);color:#0a0a14;font-weight:700">פגעת ✓</a><a href="#" onclick="event.preventDefault();trustFeedback('${r.cell}','no')">לא זה ✗</a></div>
+    </div>`;
+  window.__trustTrack=track; window.__trustCell=r.cell;
+}
+function playTrust(){ const t=window.__trustTrack; if(!t||!t.preview) return; if(curKey==='tr-trust'){ stopAll(); return; } stopAll(); document.getElementById('tr-trust').classList.add('playing'); playUrl(t.preview,'tr-trust',null); }
+function trustFeedback(cell,ans){
+  const t=window.__trustTrack||{}; const [ti,te,mo,vo]=cell.split('/'); const leafC=R[ti][te][mo][vo];
+  moment({action:'trust', layer:'voice', cell, track_id:t.id||null, track_title:t.title||null, track_artist:t.artist||null, reaction:ans, meta:{cell_name:leafC[0]}});
+  if(ans==='yes'){ alertish('רשמתי לי 🙏'); setTimeout(()=>{ S.screen='home'; ME=null; render(); },900); }
+  else { alertish('בסדר, בואי נקשיב'); setTimeout(startListen,700); }
+}
 
 function renderLayer(){
   const L=LAYERS[S.layer];
-  S.tracks={};
+  S.tracks={}; S.played={};
   $app.innerHTML=`
-   <div class="top"><span class="pill">רובד ${S.layer+1} מתוך ${LAYERS.length}</span>${S.layer>0?`<button class="back" onclick="goBack()">→ רובד קודם</button>`:''}</div>
+   <div class="top"><span class="pill">רובד ${S.layer+1} מתוך ${LAYERS.length}${S.context?` · ${esc(S.context)}`:''}</span>${S.layer>0?`<button class="back" onclick="goBack()">→ רובד קודם</button>`:`<button class="back" onclick="S.screen='home';render()">→ חזרה</button>`}</div>
    <div class="dots">${LAYERS.map((_,i)=>`<i class="${i<=S.layer?'on':''}"></i>`).join('')}</div>
    <div class="q">${L.q}</div><div class="sub">${L.sub}</div>
    <div class="opts">${L.opts.map(o=>`
@@ -367,7 +454,7 @@ function renderLayer(){
 function tap(v){
   const t=S.tracks[v]; if(!t) return;
   if(curKey===v){ stopAll(); return; }
-  stopAll();
+  stopAll(); S.played[v]=true;
   document.getElementById('opt-'+v).classList.add('playing');
   const bar=document.getElementById('bar-'+v);
   playUrl(t.preview, v, ct=>{ if(bar) bar.style.width=Math.min(100,Math.max(0,(ct-SEG_START)/SEG_LEN*100))+'%'; });
@@ -383,6 +470,14 @@ function closeRound(){
   advance(best);
 }
 function advance(v){
+  const L=LAYERS[S.layer].id;
+  // זיכרון: "זה" על הכרטיס שנבחר, "לא זה" על כרטיסים ששמעה ולא בחרה
+  LAYERS[S.layer].opts.forEach(o=>{
+    if(o.v!==v && !S.played[o.v]) return;
+    const c=cellFor(o.v), t=S.tracks[o.v]||{}, lf=leaf(c);
+    moment({action:'listen', layer:L, cell:[c.timbre,c.tempo,c.mood,c.voice].join('/'), track_id:t.id||null, track_title:t.title||null, track_artist:t.artist||null, reaction:o.v===v?'yes':'no', meta:{cell_name:lf[0], card:o.v}});
+  });
+  S.played={};
   S.picks[LAYERS[S.layer].id]=v; S.votes={};
   if(S.layer<LAYERS.length-1){ S.layer++; S.screen='layer'; } else { S.screen='result'; }
   render();
@@ -401,7 +496,7 @@ function renderResult(){
       <div class="k">ההתאמה הכי קרובה</div>
       <div class="name">${main[0]}</div>
       <div class="desc">${main[1]}</div>
-      <div class="links" id="mainlinks"><a href="${sp(main[0])}" target="_blank" rel="noopener">● ספוטיפיי</a><a href="${yt(main[0])}" target="_blank" rel="noopener">▶ יוטיוב</a></div>
+      <div class="links" id="mainlinks"><a href="${yt(main[0])}" target="_blank" rel="noopener" style="background:rgba(255,255,255,.14);font-weight:700">▶ מיקס ביוטיוב</a><a href="${sp(main[0])}" target="_blank" rel="noopener">● ספוטיפיי</a></div>
     </div>
     <div class="pl" id="pl"><h2>10 שירים להתחיל מהם</h2><div class="track shim" style="width:70%"></div></div>
     <div class="alt">
@@ -413,7 +508,7 @@ function renderResult(){
       <li>${WHY.timbre[p.timbre]}</li><li>${WHY.tempo[p.tempo]}</li><li>${WHY.mood[p.mood]}</li><li>${WHY.voice[p.voice]}</li>
     </ul></div>
     <button class="btn primary" onclick="copyRes()">📋 להעתיק</button>
-    <button class="btn ghost" onclick="S.screen='intro';render()">לכוון מחדש</button>
+    <button class="btn ghost" onclick="S.screen='home';ME=null;render()">→ חזרה לחבר</button>
     <div class="tiny">מחר זה יכול להיות משהו אחר לגמרי. זה בסדר – ככה זה אמור לעבוד.</div>`;
   S._copy=`התדר שלי עכשיו 〰️\n${main[0]} – ${main[1]}\nלדוגמה: ${main[2]}\n\nאו: ${alt[0]} (${alt[2]})`;
   loadPlaylist(main);
@@ -431,9 +526,9 @@ async function loadPlaylist(main){
         <div class="tr" id="tr-${i}" onclick="playTr(${i})">
           <div class="cv">${t.cover?`<img src="${esc(t.cover)}" alt="" onerror="this.remove()">`:''}<span>▶</span></div>
           <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
-          <a href="${esc(t.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="לפתוח בדיזר">↗</a>
+          <a href="${ytUrl(t)}" target="_blank" rel="noopener" onclick="event.stopPropagation();openYT(PL.tracks[${i}],'${S.picks.timbre}/${S.picks.tempo}/${S.picks.mood}/${S.picks.voice}')" title="לפתוח ביוטיוב" style="font-size:13px;font-weight:700;background:rgba(255,255,255,.08);border-radius:10px;padding:8px 10px">▶ יוטיוב</a>
         </div>`).join('')}
-      ${r.playlist?`<div class="links"><a href="${esc(r.playlist.link)}" target="_blank" rel="noopener">▶ הפלייליסט המלא בדיזר</a></div>`:''}`;
+      ${r.playlist?`<div class="links"><a href="${esc(r.playlist.link)}" target="_blank" rel="noopener">הפלייליסט המלא בדיזר ↗</a></div>`:''}`;
     S._copy += '\n\n' + tracks.map(t=>`• ${t.artist} – ${t.title}`).join('\n');
   }catch(e){
     if(box) box.innerHTML=`<h2>10 שירים להתחיל מהם</h2><div class="desc" style="color:var(--muted);font-size:14px">לא הצלחתי לטעון פלייליסט כרגע. לדוגמה: ${main[2]}</div>`;
@@ -453,8 +548,8 @@ function copyRes(){
   try{ navigator.clipboard.writeText(text).then(ok).catch(()=>fb(text)); }catch(e){ fb(text); }
   function fb(t){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');ok();}catch(e){} document.body.removeChild(ta); }
 }
-window.__S=()=>S; window.__R=R;
-render();
+window.__S=()=>S; window.__R=R; window.__UK=UK;
+loadMe().then(render); render();
 </script>
 </body>
 </html>
