@@ -1,8 +1,24 @@
 /* מנוע צליל חי: הכול מסונתז בדפדפן, שכבה על שכבה, על שעון אחד. */
 let ctx, master, analyser, reverbIn, noiseBuf;
 const KS = {};
+/* אייפון: במצב שקט הוא משתיק צליל שנוצר בדפדפן. שני תיקונים: להגדיר את הדף כ"נגן" (iOS 17+),
+   ולהפעיל פעם אחת קובץ שמע שקט בתוך הלחיצה הראשונה – זה פותח את ערוץ המדיה. */
+let unlocked = false;
+function unlockIOS() {
+  if (unlocked) return; unlocked = true;
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  try {
+    const sr = 8000, n = sr / 10, b = new ArrayBuffer(44 + n * 2), v = new DataView(b);
+    const w = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    const a = new Audio(URL.createObjectURL(new Blob([b], { type: 'audio/wav' }))); a.setAttribute('playsinline', ''); a.loop = true; a.volume = 0.01;
+    const p = a.play(); p && p.catch(() => {}); window.__keepAlive = a;
+  } catch (e) {}
+}
 function ensureCtx(){
-  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  unlockIOS();
+  if (ctx) { if (ctx.state !== 'running') ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
   master = ctx.createDynamicsCompressor(); master.threshold.value = -16; master.ratio.value = 4;
   const out = ctx.createGain(); out.gain.value = 0.9;
@@ -11,6 +27,7 @@ function ensureCtx(){
   const rv = ctx.createConvolver(); const len = Math.floor(ctx.sampleRate * 2.6), ir = ctx.createBuffer(2, len, ctx.sampleRate);
   for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
   rv.buffer = ir; reverbIn = ctx.createGain(); reverbIn.gain.value = 0.3; reverbIn.connect(rv); rv.connect(master);
+  if (ctx.state !== 'running') ctx.resume();
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
 }

@@ -1,3 +1,7 @@
+/* אם משהו נשבר – מראים את זה על המסך, כדי שאפשר יהיה לצלם ולתקן */
+window.addEventListener('error', e => { try { const d = document.getElementById('err') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'err' });
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;background:#ff4f7b;color:#fff;font:13px system-ui;padding:8px 12px;direction:ltr;text-align:left';
+  d.textContent = 'שגיאה: ' + (e.message || e) + ' @' + (e.lineno || ''); } catch (x) {} });
 /* ===================== API & MEMORY ===================== */
 const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? location.origin : 'https://vofpzkcvncbvmnxrmhyc.supabase.co/functions/v1/tadar';
 const api = (p, params) => { const u = new URL(API_BASE + '/api/' + p); Object.entries(params || {}).forEach(([k, v]) => u.searchParams.set(k, typeof v === 'string' ? v : JSON.stringify(v))); return fetch(u).then(r => { if (!r.ok) throw new Error('api ' + r.status); return r.json(); }); };
@@ -323,6 +327,7 @@ function trustFb(id, ok) {
 }
 
 /* ===================== BOOT ===================== */
+document.addEventListener('touchend', function first() { ensureCtx(); document.removeEventListener('touchend', first); }, { passive: true });
 document.getElementById('say').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
 if (!micSupported()) document.getElementById('mic').style.display = 'none';
 window.__S = () => S;
