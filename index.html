@@ -9,547 +9,752 @@
 <title>התדר שלך עכשיו</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#07070c;--card:#121220;--card2:#1a1a2e;--line:#242440;--text:#f4f2ff;--muted:#8d8aa8;--a:#ff4f7b;--b:#6c5cff;--ok:#32e6a1}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Heebo',system-ui,sans-serif;min-height:100%}
-  body{background:radial-gradient(900px 500px at 50% -20%,#1d1442 0%,var(--bg) 65%)}
-  .app{max-width:480px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(48px + env(safe-area-inset-bottom));min-height:100vh;display:flex;flex-direction:column}
-  h1{font-weight:900;font-size:32px;margin:0 0 8px;line-height:1.1;letter-spacing:-.5px}
-  h2{font-weight:700;font-size:20px;margin:0}
-  p{line-height:1.6;margin:0 0 12px;color:var(--muted)}
-  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
-  .pill{font-size:13px;color:var(--muted);background:var(--card);border:1px solid var(--line);padding:5px 12px;border-radius:99px}
-  .back{background:none;border:0;color:var(--muted);font:inherit;font-size:14px;cursor:pointer;padding:6px}
-  .dots{display:flex;gap:6px;margin:8px 0 18px}
-  .dots i{flex:1;height:4px;border-radius:9px;background:var(--line)}
-  .dots i.on{background:linear-gradient(90deg,var(--a),var(--b))}
-  .q{font-size:24px;font-weight:700;margin:0 0 4px;line-height:1.25}
-  .sub{font-size:14px;color:var(--muted);margin-bottom:18px}
-  .opts{display:flex;flex-direction:column;gap:12px}
-  .opt{background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:16px;cursor:pointer;position:relative;transition:border-color .2s,transform .1s;overflow:hidden}
-  .opt:active{transform:scale(.985)}
-  .opt.loading{opacity:.6;pointer-events:none}
-  .opt.playing{border-color:var(--a);background:linear-gradient(135deg,rgba(255,79,123,.12),rgba(108,92,255,.12))}
-  .opt .row{display:flex;align-items:center;gap:14px}
-  .play{width:56px;height:56px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px;border:1px solid var(--line);position:relative;overflow:hidden}
-  .play img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.55}
-  .play .tri,.play .eq{position:relative;z-index:1}
-  .opt.playing .play{border-color:transparent}
-  .opt.playing .play::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,79,123,.75),rgba(108,92,255,.75));z-index:1}
-  .eq{display:none;gap:3px;align-items:flex-end;height:20px}
-  .opt.playing .eq{display:flex}.opt.playing .tri{display:none}
-  .eq i{width:4px;background:#fff;border-radius:2px;animation:eq .7s ease-in-out infinite}
-  .eq i:nth-child(2){animation-delay:.15s}.eq i:nth-child(3){animation-delay:.3s}.eq i:nth-child(4){animation-delay:.45s}
-  @keyframes eq{0%,100%{height:5px}50%{height:20px}}
-  .opt .name{font-weight:700;font-size:18px}
-  .opt .desc{font-size:13px;color:var(--muted);margin-top:2px}
-  .opt .track{font-size:12px;color:var(--muted);margin-top:4px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:right}
-  .opt .track.shim{height:12px;width:60%;border-radius:6px;background:linear-gradient(90deg,var(--line),var(--card2),var(--line));background-size:200% 100%;animation:shim 1.2s infinite}
-  @keyframes shim{0%{background-position:200% 0}100%{background-position:-200% 0}}
-  .bar{position:absolute;bottom:0;right:0;height:3px;width:0;background:linear-gradient(90deg,var(--a),var(--b));transition:width .25s linear}
-  .choose{display:none;margin-top:14px;width:100%;border:0;border-radius:14px;padding:13px;font:inherit;font-weight:700;font-size:16px;color:#0a0a14;background:var(--ok);cursor:pointer}
-  .opt.playing .choose{display:block;animation:fade .25s}
-  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-  .votes{position:absolute;top:12px;left:14px;background:var(--b);color:#fff;font-size:13px;font-weight:700;border-radius:99px;padding:3px 10px}
-  .btn{display:block;width:100%;border:0;border-radius:16px;padding:16px;font:inherit;font-weight:700;font-size:17px;color:#fff;cursor:pointer;margin-top:12px}
-  .btn.primary{background:linear-gradient(135deg,var(--a),var(--b))}
-  .btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--muted);font-weight:500;font-size:15px}
-  .btn:active{transform:scale(.98)}
-  .hero{text-align:center;padding-top:36px;flex:1;display:flex;flex-direction:column;justify-content:center}
-  .hero .big{font-size:64px;margin-bottom:8px}
-  .mode{display:flex;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:4px;margin:16px 0 8px}
-  .mode button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;font-weight:700;padding:10px;border-radius:99px;cursor:pointer}
-  .mode button.on{background:var(--card2);color:var(--text)}
-  .res{background:linear-gradient(135deg,rgba(255,79,123,.18),rgba(108,92,255,.18));border:1px solid #3a2f6e;border-radius:24px;padding:22px 18px;margin-bottom:14px}
-  .res .k{font-size:13px;color:var(--muted);margin-bottom:4px}
-  .res .name{font-size:28px;font-weight:900;line-height:1.15;margin-bottom:6px}
-  .res .desc{color:var(--text);opacity:.85;font-size:15px;margin-bottom:6px}
-  .links{display:flex;gap:8px;margin-top:14px}
-  .links a{flex:1;text-align:center;text-decoration:none;color:var(--text);background:rgba(255,255,255,.08);border-radius:12px;padding:11px;font-size:14px;font-weight:500}
-  .alt{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
-  .alt .name{font-size:19px;font-weight:700}
-  .alt .k{font-size:13px;color:var(--muted);margin-bottom:4px}
-  .alt .desc{font-size:14px;color:var(--muted)}
-  .why{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
-  .why ul{margin:6px 0 0;padding:0 18px 0 0;color:var(--muted);line-height:1.7;font-size:14px}
-  .why b{color:var(--text)}
-  .pl{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
-  .pl h2{margin-bottom:10px}
-  .tr{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
-  .tr:first-of-type{border-top:0}
-  .tr .cv{width:46px;height:46px;border-radius:10px;background:var(--card2);flex-shrink:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
-  .tr .cv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-  .tr .cv span{position:relative;z-index:1;font-size:16px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8)}
-  .tr.playing .cv::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,79,123,.7),rgba(108,92,255,.7));z-index:1}
-  .tr .t{flex:1;min-width:0;direction:ltr;text-align:right}
-  .tr .t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tr .t span{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-  .tr a{color:var(--muted);text-decoration:none;font-size:18px;padding:6px}
-  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ok);color:#0a0a14;padding:10px 18px;border-radius:99px;font-weight:700;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
-  .toast.show{opacity:1}
-  .tiny{font-size:12px;color:var(--muted);text-align:center;margin-top:16px}
-  .err{background:rgba(255,79,123,.12);border:1px solid var(--a);border-radius:14px;padding:12px;font-size:14px;color:var(--text);margin-top:12px}
+:root{--bg:#07070c;--card:#121220;--card2:#1a1a2e;--line:#242440;--text:#f4f2ff;--muted:#8d8aa8;--a:#ff4f7b;--b:#6c5cff;--ok:#32e6a1}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Heebo',system-ui,sans-serif}
+body{background:radial-gradient(900px 500px at 50% -20%,#1d1442 0%,var(--bg) 65%);min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 16px calc(110px + env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;min-height:36px}
+.back{background:none;border:0;color:var(--muted);font:inherit;font-size:14px;padding:6px;cursor:pointer}
+.chip{background:var(--card);border:1px solid var(--line);color:var(--text);font:inherit;font-size:14px;padding:7px 14px;border-radius:99px;cursor:pointer}
+.hello{font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:6px}
+.noted{font-size:13px;color:var(--ok);margin-bottom:10px}
+.stack{display:flex;align-items:center;gap:8px;width:100%;text-align:right;background:linear-gradient(135deg,rgba(255,79,123,.14),rgba(108,92,255,.14));border:1px solid #3a2f6e;color:var(--text);font:inherit;font-size:14px;padding:10px 14px;border-radius:14px;margin-bottom:14px;cursor:pointer}
+.stack.big{margin:12px 0 4px;font-size:15px}
+.eqs{display:inline-flex;gap:2px;align-items:flex-end;height:14px}.eqs i{width:3px;height:5px;background:var(--a);border-radius:2px}
+.stack.playing .eqs i{animation:eq .7s infinite}.stack.playing .eqs i:nth-child(2){animation-delay:.2s}.stack.playing .eqs i:nth-child(3){animation-delay:.4s}
+.q{font-size:25px;font-weight:700;line-height:1.25;margin-bottom:4px}
+.sub{font-size:14px;color:var(--muted);margin-bottom:16px}
+.guide{background:rgba(50,230,161,.08);border:1px solid rgba(50,230,161,.35);color:var(--text);border-radius:14px;padding:11px 14px;font-size:14px;line-height:1.6;margin-bottom:14px}
+.opts{display:flex;flex-direction:column;gap:11px}
+.opt{background:var(--card);border:1.5px solid var(--line);border-radius:22px;padding:14px 16px;cursor:pointer;transition:border-color .2s,transform .1s}
+.opt:active{transform:scale(.985)}
+.opt.playing{border-color:var(--a);background:linear-gradient(135deg,rgba(255,79,123,.12),rgba(108,92,255,.12))}
+.row{display:flex;align-items:center;gap:14px}
+.play{width:54px;height:54px;border-radius:50%;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:19px}
+.opt.playing .play{background:linear-gradient(135deg,var(--a),var(--b));border-color:transparent}
+.eq{display:none;gap:3px;align-items:flex-end;height:20px}.opt.playing .eq{display:flex}.opt.playing .tri{display:none}
+.eq i{width:4px;background:#fff;border-radius:2px;animation:eq .7s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.15s}.eq i:nth-child(3){animation-delay:.3s}.eq i:nth-child(4){animation-delay:.45s}
+@keyframes eq{0%,100%{height:5px}50%{height:18px}}
+.name{font-weight:700;font-size:19px}.desc{font-size:13px;color:var(--muted);margin-top:2px;line-height:1.5}.desc.big{font-size:16px;color:var(--text);margin:8px 0}
+.choose{display:none;margin-top:12px;width:100%;border:0;border-radius:14px;padding:13px;font:inherit;font-weight:700;font-size:17px;color:#0a0a14;background:var(--ok);cursor:pointer}
+.opt.playing .choose{display:block;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.btn{display:block;width:100%;border:0;border-radius:16px;padding:15px;font:inherit;font-weight:700;font-size:16px;color:#fff;cursor:pointer;margin-top:12px}
+.btn.primary{background:linear-gradient(135deg,var(--a),var(--b))}.btn.ok{background:var(--ok);color:#0a0a14}
+.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--muted);font-weight:500}
+.tiny{font-size:12px;color:var(--muted);text-align:center;margin-top:16px}
+.res{background:linear-gradient(135deg,rgba(255,79,123,.18),rgba(108,92,255,.18));border:1px solid #3a2f6e;border-radius:24px;padding:20px 18px;margin-bottom:14px}
+.res .k{font-size:13px;color:var(--muted);margin-bottom:4px}.res .name{font-size:32px;font-weight:900;line-height:1.1}
+.res .en{font-size:14px;color:var(--muted);direction:ltr;text-align:right;margin-top:2px}
+.tell{font-size:15px;line-height:1.65;margin-top:12px}
+.pl,.alt{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px}
+.pl h2{font-size:18px;margin:0 0 8px}.alt .k{font-size:13px;color:var(--muted);margin-bottom:8px}
+.tr{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}.tr:first-of-type{border-top:0}
+.cv{width:46px;height:46px;border-radius:10px;background:var(--card2);flex-shrink:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.cv img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.cv span{position:relative;z-index:1;color:#fff;text-shadow:0 1px 4px #000}
+.tr.playing .cv::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,79,123,.75),rgba(108,92,255,.75));z-index:1}
+.t{flex:1;min-width:0;direction:ltr;text-align:right}.t b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.t span{font-size:13px;color:var(--muted)}
+.yt{font-size:13px;font-weight:700;color:var(--text);text-decoration:none;background:rgba(255,255,255,.08);border-radius:10px;padding:8px 10px;white-space:nowrap}
+.mix{display:block;text-align:center;margin-top:10px;color:var(--muted);font-size:14px;text-decoration:none}
+.fb{display:flex;gap:10px}.fb .btn{margin-top:0}
+.nbs{display:flex;flex-wrap:wrap;gap:8px}.nb{background:var(--card2);border:1px solid var(--line);color:var(--text);font:inherit;font-size:15px;padding:9px 14px;border-radius:99px;cursor:pointer}
+.shim{height:12px;width:65%;border-radius:6px;background:linear-gradient(90deg,var(--line),var(--card2),var(--line));background-size:200% 100%;animation:sh 1.2s infinite}
+@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.bar{position:fixed;bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(7,7,12,0),rgba(7,7,12,.92) 30%);z-index:5}
+.bar .in{max-width:480px;margin:0 auto;display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 5px 5px 6px}
+.bar input{flex:1;background:transparent;border:0;outline:0;color:var(--text);font:inherit;font-size:16px;padding:9px 12px;min-width:0}
+.bar button{width:42px;height:42px;border-radius:50%;border:0;font-size:18px;cursor:pointer;flex-shrink:0}
+#mic{background:var(--card2);color:var(--text)}#mic.on{background:var(--a);animation:pulse 1s infinite}
+#go{background:linear-gradient(135deg,var(--a),var(--b));color:#fff}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(255,79,123,.25)}}
 </style>
 </head>
 <body>
 <div class="app" id="app"></div>
-<div class="toast" id="toast">הועתק</div>
-
+<div class="bar"><div class="in">
+  <input id="say" placeholder="תכתבי או תגידי לי…" autocomplete="off" enterkeyhint="send">
+  <button id="mic" onclick="toggleMic()" aria-label="לדבר">🎙</button>
+  <button id="go" onclick="sendText()" aria-label="שלח">←</button>
+</div></div>
 <script>
-/* ===================== API ===================== */
-const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? location.origin + location.pathname.replace(/\/+$/,'') : 'https://vofpzkcvncbvmnxrmhyc.supabase.co/functions/v1/tadar';
-const api = (p, params) => {
-  const u = new URL(API_BASE + '/api/' + p);
-  Object.entries(params||{}).forEach(([k,v])=>u.searchParams.set(k, typeof v==='string'?v:JSON.stringify(v)));
-  return fetch(u).then(r=>{ if(!r.ok) throw new Error('api '+r.status); return r.json(); });
-};
-
-/* ===================== PLAYER (real previews) ===================== */
-const SEG_START = 6; let SEG_LEN = 8;
-let audio = null, onTick = null, curKey = null;
-function ensureAudio(){
-  if(audio) return audio;
-  audio = new Audio(); audio.preload = 'auto'; audio.crossOrigin = null;
-  audio.addEventListener('timeupdate', ()=>{
-    if(audio.currentTime >= SEG_START + SEG_LEN){ try{ audio.currentTime = SEG_START; }catch(e){} }
-    onTick && onTick(audio.currentTime);
-  });
-  audio.addEventListener('ended', ()=>{ try{ audio.currentTime = SEG_START; audio.play(); }catch(e){} });
-  audio.addEventListener('error', ()=>{ stopAll(); alertish('הקטע לא נטען, נסי כרטיס אחר'); });
-  return audio;
-}
-function playUrl(url, key, tick){
-  const a = ensureAudio();
-  curKey = key; onTick = tick;
-  if(a.src !== url){ a.src = url; a.load(); }
-  const start = ()=>{ try{ a.currentTime = SEG_START; }catch(e){} };
-  if(a.readyState >= 1) start(); else a.addEventListener('loadedmetadata', start, {once:true});
-  const p = a.play(); if(p && p.catch) p.catch(()=>{});
-  window.__nowPlaying = key;
-}
-function stopAll(){
-  if(audio){ try{ audio.pause(); }catch(e){} }
-  curKey = null; onTick = null; window.__nowPlaying = null;
-  document.querySelectorAll('.playing').forEach(e=>e.classList.remove('playing'));
-  document.querySelectorAll('.bar').forEach(b=>b.style.width='0');
-}
-
-/* ===================== IDENTITY & MEMORY ===================== */
-function userKey(){
-  try{ let k=localStorage.getItem('tadar_user'); if(!k){ k=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>'abcdefghijklmnopqrstuvwxyz0123456789'[b%36]).join(''); localStorage.setItem('tadar_user',k); } return k; }
-  catch(e){ return window.__tmpKey||(window.__tmpKey='tmp'+Math.random().toString(36).slice(2,14)); }
-}
-const UK = userKey();
-function nowCtx(){ const d=new Date(); return {local_hour:d.getHours(), weekday:d.getDay(), tz:Intl.DateTimeFormat().resolvedOptions().timeZone||null}; }
-const post = (p, body) => fetch(API_BASE+'/api/'+p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}).then(r=>r.ok?r.json():Promise.reject(new Error('api '+r.status)));
-let ME = null;
-async function loadMe(){ try{ ME=await api('me',{u:UK}); SEG_LEN=Math.max(5,Math.min(20,ME.listen_seconds||8)); }catch(e){ ME=null; } return ME; }
-function moment(m){
-  const body=Object.assign({user_key:UK, context:S.context||null}, nowCtx(), m);
-  return post('moment',body).then(r=>{ if(r&&r.listen_seconds){ ME=r; SEG_LEN=Math.max(5,Math.min(20,r.listen_seconds)); } return r; }).catch(()=>null);
-}
-const ytUrl = t => `https://www.youtube.com/results?search_query=${enc((t.artist||'')+' '+(t.title||''))}`;
-function openYT(t, cell){
-  moment({action:'open', layer:'result', cell:cell||null, track_id:t.id||null, track_title:t.title||null, track_artist:t.artist||null, reaction:'opened'});
-}
-
-/* ===================== CONTENT ===================== */
-const LAYERS = [
-  {id:'timbre', q:'איזה צליל נעים לך עכשיו?', sub:'לחצי על כרטיס כדי להשמיע. אין נכון ולא נכון – רק מה שמרגיש טוב.',
-   opts:[
-    {v:'acoustic', icon:'🪵', name:'חם ואקוסטי', desc:'מיתרים, עץ, משהו שנוגעים בו'},
-    {v:'electric', icon:'⚡', name:'חשמלי ונוצץ', desc:'סינתיסייזרים, ברק, תנועה'},
-    {v:'deep', icon:'🌊', name:'עמוק ועגול', desc:'בס, רוחב, משהו שעוטף'},
-   ]},
-  {id:'tempo', q:'איזה דופק?', sub:'אותו צליל, שלוש מהירויות. הגוף יודע.',
-   opts:[
-    {v:'slow', icon:'🌙', name:'איטי', desc:'נשימה, שקיעה, להאט'},
-    {v:'mid', icon:'🚶‍♀️', name:'בינוני', desc:'הליכה, זרימה, מיקוד'},
-    {v:'fast', icon:'🔥', name:'מהיר', desc:'אנרגיה, שחרור, ריקוד'},
-   ]},
-  {id:'mood', q:'איזו אווירה?', sub:'אותו צליל ואותו דופק – צבע אחר.',
-   opts:[
-    {v:'major', icon:'☀️', name:'בהיר', desc:'פתוח, מרים, אופטימי'},
-    {v:'minor', icon:'🌑', name:'עמוק', desc:'מלנכולי, מכיל, מאפשר להרגיש'},
-   ]},
-  {id:'voice', q:'עם קול או בלי?', sub:'הרובד האחרון.',
-   opts:[
-    {v:'yes', icon:'🎤', name:'עם קול', desc:'מישהו שר איתך'},
-    {v:'no', icon:'🎧', name:'בלי קול', desc:'רק מוזיקה, מקום לראש'},
-   ]},
+/* קטלוג הסגנונות – כל סגנון מוגדר לפי השכבות שבונות אותו.
+   groove: הביט · bpm · palette: צלילים · texture: מה באוויר · vocal: none|sing|rap · mood: bright|dark|east
+   tell: מה המדריך אומר עליו · seeds: שירים אמיתיים · q: חיפוש פלייליסט · al: מילים שמזהות אותו בכתיבה */
+const STYLES = [
+ {id:'deep_house', he:'דיפ האוס', en:'Deep House', groove:'four', bpm:122, palette:['pad','rhodes','sub'], texture:['none','vinyl'], vocal:'none', mood:'dark',
+  tell:'ביט ישר וחם, אקורדים רכים שחוזרים, בס עגול. מוזיקה שזזה לאט מבפנים.', q:'deep house', al:['דיפ','deep house','דיפ האוס'],
+  seeds:[['Kerri Chandler','Rain'],['Lane 8','Brightest Lights'],['Larry Heard','Can You Feel It']]},
+ {id:'melodic_techno', he:'טכנו מלודי', en:'Melodic Techno', groove:'four', bpm:124, palette:['synth','pad','sub'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'אותו ביט של טכנו, אבל עם מלודיה שנבנית ועולה. היפנוטי ורגשי.', q:'melodic techno', al:['טכנו מלודי','melodic techno','מלודיק'],
+  seeds:[['Stephan Bodzin','Singularity'],['Anyma','Eternity'],['Monolink','Return to Oz']]},
+ {id:'techno', he:'טכנו', en:'Techno', groove:'four', bpm:132, palette:['synth','sub'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'חזרתיות, דיוק, מכונה. מעט אלמנטים שחוזרים עד שנכנסים לטראנס.', q:'techno', al:['טכנו','techno'],
+  seeds:[['Charlotte de Witte','Formula'],['Amelie Lens','Hypnotized'],['Adam Beyer','Your Mind']]},
+ {id:'afro_house', he:'אפרו־האוס', en:'Afro House', groove:'afro', bpm:120, palette:['bell','pad','sub'], texture:['shaker','birds'], vocal:'sing', mood:'dark',
+  tell:'כלי הקשה אפריקאיים שמתגלגלים מעל ביט של האוס. גוף, שמש, מעגל.', q:'afro house', al:['אפרו האוס','afro house','אפרו־האוס'],
+  seeds:[['Black Coffee','Drive'],['Adam Port','Move'],['&ME','The Rapture Pt.II']]},
+ {id:'organic_house', he:'אורגניק האוס', en:'Organic House', groove:'four', bpm:116, palette:['oud','pad'], texture:['birds','none'], vocal:'none', mood:'east',
+  tell:'האוס איטי עם כלים אמיתיים מהמזרח ומהמדבר. רוקדים בעיניים עצומות.', q:'organic house', al:['אורגני','organic','מדבר'],
+  seeds:[['Bedouin','Up Hill Down Hall'],['Monolink','Return to Oz'],['Acid Pauli','Nana']]},
+ {id:'trance', he:'טראנס', en:'Trance', groove:'four', bpm:136, palette:['synth','pad'], texture:['none'], vocal:'none', mood:'bright',
+  tell:'עולה ועולה, נשבר, ואז מתפוצץ. מוזיקה של ידיים למעלה.', q:'trance classics', al:['טראנס','trance'],
+  seeds:[['ATB','9 PM (Till I Come)'],['Eric Prydz','Pjanoo'],['Tiësto','Adagio for Strings']]},
+ {id:'psytrance', he:'פסייטראנס', en:'Psytrance', groove:'four', bpm:142, palette:['synth','sub'], texture:['none'], vocal:'none', mood:'east',
+  tell:'מהיר, מתגלגל, עם סולמות מזרחיים. ישראל היא אחת המעצמות של הסגנון הזה.', q:'psytrance', al:['פסי','פסייטראנס','psy','טראנס ישראלי'],
+  seeds:[['Infected Mushroom','Becoming Insane'],['Vini Vici','The Tribe'],['Astrix','Deep Jungle Walk']]},
+ {id:'nu_disco', he:'נו־דיסקו', en:'Nu Disco', groove:'four', bpm:115, palette:['synth','rhodes'], texture:['none'], vocal:'none', mood:'bright',
+  tell:'גרוב של דיסקו עם סינתים של היום. מחייך, רוקד, לא מתאמץ.', q:'nu disco', al:['דיסקו','disco','נו דיסקו'],
+  seeds:[['Daft Punk','Voyager'],['Todd Terje','Inspector Norse'],['Breakbot',"Baby I'm Yours"]]},
+ {id:'edm', he:'דאנס פופ / EDM', en:'EDM', groove:'four', bpm:126, palette:['synth','piano'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'פזמון גדול, דרופ גדול. מוזיקה של פסטיבל.', q:'edm hits', al:['edm','דאנס','פסטיבל'],
+  seeds:[['Avicii','Levels'],['Calvin Harris','Feel So Close'],['David Guetta','Titanium']]},
+ {id:'vocal_house', he:'האוס ווקאלי', en:'Vocal House', groove:'four', bpm:122, palette:['piano','pad'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'פסנתר האוס, קול גדול שמרים. רחבה בשתיים בלילה.', q:'vocal house classics', al:['האוס ווקאלי','vocal house'],
+  seeds:[['Robin S','Show Me Love'],['MK','17'],['Duke Dumont','Ocean Drive']]},
+ {id:'liquid_dnb', he:'דראם אנד בייס רך', en:'Liquid Drum & Bass', groove:'dnb', bpm:174, palette:['pad','piano','sub'], texture:['rain'], vocal:'sing', mood:'dark',
+  tell:'תופים מהירים מאוד, אבל מעליהם הכול רך ואיטי. מהירות ושקט ביחד.', q:'liquid drum and bass', al:['ליקוויד','liquid'],
+  seeds:[['High Contrast','If We Ever'],['Netsky','Come Alive'],['Calibre','Even If']]},
+ {id:'dnb', he:'דראם אנד בייס', en:'Drum & Bass', groove:'dnb', bpm:174, palette:['sub','synth'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'תופים שבורים ומהירים ובס שנוהם. אדרנלין.', q:'drum and bass', al:['דראם אנד בייס','dnb','drum and bass','דנב'],
+  seeds:[['Pendulum','Tarantula'],['Noisia','Machine Gun'],['Chase & Status','Blind Faith']]},
+ {id:'dubstep', he:'דאבסטפ', en:'Dubstep', groove:'half', bpm:140, palette:['sub','synth'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'חצי־זמן כבד ובס שמתעוות. מוזיקה שמרגישים בחזה.', q:'dubstep', al:['דאבסטפ','dubstep'],
+  seeds:[['Skrillex','Bangarang'],['Skrillex','Scary Monsters and Nice Sprites'],['Flux Pavilion',"I Can't Stop"]]},
+ {id:'big_beat', he:'ביג ביט', en:'Big Beat', groove:'break', bpm:128, palette:['synth','egtr'], texture:['none'], vocal:'none', mood:'bright',
+  tell:'ברייקביט שבור עם אנרגיה של רוק. שנות ה־90 הפרועות.', q:'big beat 90s', al:['ביג ביט','big beat','ברייקביט'],
+  seeds:[['Fatboy Slim','Right Here, Right Now'],['The Chemical Brothers','Galvanize'],['The Prodigy','Breathe']]},
+ {id:'uk_garage', he:'יו־קיי גראז׳', en:'UK Garage', groove:'break', bpm:132, palette:['pad','sub'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'ביט קופצני ושבור, קול חלק מעליו. לונדון בלילה.', q:'uk garage', al:['גראז','garage','2step'],
+  seeds:[['Disclosure','Latch'],['Craig David','Fill Me In'],['Artful Dodger','Re-Rewind']]},
+ {id:'trip_hop', he:'טריפ הופ', en:'Trip Hop', groove:'boombap', bpm:88, palette:['strings','sub','piano'], texture:['vinyl'], vocal:'sing', mood:'dark',
+  tell:'ביט היפ הופ איטי, כלי קשת, קול שמרחף. מסתורי ועמוק.', q:'trip hop', al:['טריפ הופ','trip hop'],
+  seeds:[['Massive Attack','Teardrop'],['Portishead','Glory Box'],['Morcheeba','The Sea']]},
+ {id:'lofi', he:'לו־פיי', en:'Lo-fi Hip Hop', groove:'boombap', bpm:82, palette:['rhodes','piano'], texture:['vinyl','rain'], vocal:'none', mood:'bright',
+  tell:'ביטים רכים, תקליט שמתפצפץ, פסנתר חם. רקע שמשאיר מקום לראש.', q:'lofi hip hop', al:['לופיי','לו פיי','lofi','לו־פיי'],
+  seeds:[['Nujabes','Aruarian Dance'],['Idealism','Controlla'],['Jinsang','Affection']]},
+ {id:'boombap', he:'היפ הופ קלאסי', en:'Boom Bap', groove:'boombap', bpm:92, palette:['piano','sub'], texture:['vinyl'], vocal:'rap', mood:'dark',
+  tell:'קיק וסנר מתנדנדים, סמפל, וראפ שמספר סיפור. ניו יורק של שנות ה־90.', q:'90s hip hop', al:['היפ הופ','hip hop','בום באפ'],
+  seeds:[['Nas','N.Y. State of Mind'],['A Tribe Called Quest','Electric Relaxation'],['Mobb Deep','Shook Ones, Pt. II']]},
+ {id:'trap', he:'טראפ', en:'Trap', groove:'half', bpm:140, palette:['sub','bell'], texture:['none'], vocal:'rap', mood:'dark',
+  tell:'808 עמוק, היי־האטים מהירים, וראפ. הסאונד של היום.', q:'trap', al:['טראפ','trap'],
+  seeds:[['Travis Scott','goosebumps'],['Future','Mask Off'],['Metro Boomin','Superhero (Heroes & Villains)']]},
+ {id:'dark_rnb', he:'R&B אפל', en:'Dark R&B', groove:'half', bpm:130, palette:['pad','sub'], texture:['none'], vocal:'sing', mood:'dark',
+  tell:'ביט של טראפ, אבל שרים מעליו. לילה בעיר.', q:'dark r&b', al:['rnb','r&b','אר אנד בי'],
+  seeds:[['The Weeknd','The Hills'],['Bryson Tiller',"Don't"],['PARTYNEXTDOOR','Come and See Me']]},
+ {id:'neo_soul', he:'נאו־סול', en:'Neo Soul', groove:'boombap', bpm:85, palette:['rhodes','sub'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'פסנתר חשמלי חם, גרוב רך, קול נשמה. חושני ואיטי.', q:'neo soul', al:['נאו סול','neo soul','סול'],
+  seeds:[['Erykah Badu',"Didn't Cha Know"],['Daniel Caesar','Best Part'],["D'Angelo",'Untitled (How Does It Feel)']]},
+ {id:'reggaeton', he:'רגאטון', en:'Reggaeton', groove:'dembow', bpm:95, palette:['synth','sub'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'המקצב "דמבו" – בום, צ׳ק־בום־צ׳ק. אי אפשר לא לזוז.', q:'reggaeton', al:['רגאטון','reggaeton','לטיני','latin'],
+  seeds:[['Daddy Yankee','Gasolina'],['J Balvin','Mi Gente'],['Bad Bunny','Tití Me Preguntó']]},
+ {id:'afrobeats', he:'אפרוביטס', en:'Afrobeats', groove:'afro', bpm:105, palette:['guitar','bell','sub'], texture:['shaker'], vocal:'sing', mood:'bright',
+  tell:'מקצבים מגלגלים מניגריה וגאנה, גיטרה קלילה, שמחה בגוף.', q:'afrobeats', al:['אפרוביטס','afrobeats'],
+  seeds:[['Rema','Calm Down'],['Burna Boy','Last Last'],['Wizkid','Essence']]},
+ {id:'reggae', he:'רגאיי', en:'Reggae', groove:'onedrop', bpm:75, palette:['guitar','sub'], texture:['none','birds'], vocal:'sing', mood:'bright',
+  tell:'התוף נופל על הפעמה השלישית, הגיטרה על ההפסקות. הכול נינוח.', q:'reggae classics', al:['רגאיי','reggae','בוב מארלי'],
+  seeds:[['Bob Marley & The Wailers','Three Little Birds'],['Bob Marley & The Wailers','Is This Love'],['Chronixx',"Skankin' Sweet"]]},
+ {id:'indie_folk', he:'אינדי פולק', en:'Indie Folk', groove:'pulse', bpm:76, palette:['guitar'], texture:['birds','none'], vocal:'sing', mood:'dark',
+  tell:'גיטרה אחת, קול שקט, הרבה מקום. אינטימי וכנה.', q:'indie folk', al:['פולק','folk','אינדי פולק'],
+  seeds:[['Bon Iver','Skinny Love'],['Fleet Foxes','White Winter Hymnal'],['Damien Rice',"The Blower's Daughter"]]},
+ {id:'songwriter', he:'סינגר־סונגרייטר', en:'Singer-Songwriter', groove:'rock', bpm:100, palette:['guitar','piano'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'שיר שמספר משהו, גיטרה או פסנתר, קול חם. אחר צהריים על מרפסת.', q:'acoustic singer songwriter', al:['אקוסטי','acoustic','זמר יוצר'],
+  seeds:[['Norah Jones',"Don't Know Why"],['Jack Johnson','Better Together'],['Ben Howard','Old Pine']]},
+ {id:'folk_pop', he:'פולק פופ', en:'Folk Pop', groove:'rock', bpm:120, palette:['guitar'], texture:['clap'], vocal:'sing', mood:'bright',
+  tell:'מחיאות כפיים, גיטרות, פזמון שכולם שרים. להקה של חברים.', q:'folk pop', al:['פולק פופ'],
+  seeds:[['The Lumineers','Ho Hey'],['Of Monsters and Men','Little Talks'],['Mumford & Sons','Little Lion Man']]},
+ {id:'israeli_songwriter', he:'שירה עברית', en:'Israeli Singer-Songwriter', groove:'rock', bpm:96, palette:['guitar','piano','strings'], texture:['none'], vocal:'sing', mood:'dark',
+  tell:'מילים בעברית במרכז, ליווי שמשאיר להן מקום. שירים שגדלנו עליהם.', q:'שירים עבריים', al:['שירים בעברית','זמר עברי','שירה עברית','בעברית'],
+  seeds:[['Arik Einstein','אני ואתה'],['The Idan Raichel Project',"Mi'Ma'amakim"],['Shlomo Artzi','ירח'],['Arik Einstein','סע לאט']]},
+ {id:'mizrahi', he:'מזרחית / ים־תיכוני', en:'Mizrahi Pop', groove:'maqsum', bpm:100, palette:['oud','synth','strings'], texture:['clap'], vocal:'sing', mood:'east',
+  tell:'מקצב דום־טק, סולם מזרחי, קול עם סלסולים. שמחה ים־תיכונית.', q:'mizrahi', al:['מזרחית','זמר מזרחי','מוזיקה מזרחית'],
+  seeds:[['Omer Adam','תל אביב'],['Omer Adam','מלכת הדור'],['Static & Ben El','Tudo Bom']]},
+ {id:'arabic_classic', he:'קלאסי ערבי', en:'Arabic Classical', groove:'maqsum', bpm:90, palette:['oud','strings'], texture:['none'], vocal:'sing', mood:'east',
+  tell:'עוד, כלי קשת, קול שמחזיק משפט אחד דקות ארוכות. טאראב – שכרון של מוזיקה.', q:'arabic classical music', al:['מוזיקה ערבית','אום כולתום','פיירוז','טאראב'],
+  seeds:[['Umm Kulthum','Alf leila wa leila'],['Fairuz','Wahdon'],['Umm Kulthum','Ya Messaharni']]},
+ {id:'flamenco', he:'פלמנקו', en:'Flamenco', groove:'rumba', bpm:110, palette:['guitar'], texture:['clap'], vocal:'sing', mood:'east',
+  tell:'גיטרה ספרדית, מחיאות כפיים, תשוקה. מזרח ומערב נפגשים בספרד.', q:'flamenco', al:['פלמנקו','flamenco','ספרדי'],
+  seeds:[['Gipsy Kings','Bamboleo'],['Paco de Lucia','Entre dos aguas'],['Rosalía','Malamente']]},
+ {id:'indie_rock', he:'אינדי רוק', en:'Indie Rock', groove:'rock', bpm:125, palette:['egtr'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'גיטרות חשמליות, תופים ישרים, אנרגיה של להקה במרתף.', q:'indie rock', al:['אינדי רוק','indie rock','רוק אינדי'],
+  seeds:[['Arctic Monkeys','Do I Wanna Know?'],['The Strokes','Last Nite'],['Tame Impala','The Less I Know The Better']]},
+ {id:'heavy_rock', he:'רוק כבד', en:'Heavy Rock / Metal', groove:'rock', bpm:150, palette:['egtr','sub'], texture:['none'], vocal:'sing', mood:'dark',
+  tell:'גיטרות מעוותות, תופים חזקים, שחרור. לצעוק בלי לצעוק.', q:'rock classics heavy', al:['מטאל','metal','רוק כבד'],
+  seeds:[['Metallica','Enter Sandman'],['System Of A Down','Chop Suey!'],['Linkin Park','Numb']]},
+ {id:'post_punk', he:'פוסט־פאנק / סינת׳ אפל', en:'Post-Punk', groove:'rock', bpm:130, palette:['synth','egtr'], texture:['none'], vocal:'sing', mood:'dark',
+  tell:'שנות ה־80 הקודרות. בס מוביל, סינתים קרים, יופי עצוב.', q:'post punk', al:['פוסט פאנק','שנות השמונים','new wave'],
+  seeds:[['Depeche Mode','Enjoy the Silence'],['The Cure','A Forest'],['Joy Division','Love Will Tear Us Apart']]},
+ {id:'dream_pop', he:'דרים פופ', en:'Dream Pop', groove:'rock', bpm:80, palette:['egtr','pad'], texture:['none'], vocal:'sing', mood:'dark',
+  tell:'גיטרות עם הד ארוך, קול שמרחף בערפל. חלום בהקיץ.', q:'dream pop', al:['דרים פופ','dream pop','ערפל'],
+  seeds:[['Beach House','Space Song'],['Cigarettes After Sex','Apocalypse'],['Mazzy Star','Fade Into You']]},
+ {id:'synthwave', he:'סינת׳ווייב', en:'Synthwave', groove:'rock', bpm:100, palette:['synth','pad'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'סינתים של שנות ה־80, ניאון, נסיעה בלילה בכביש ריק.', q:'synthwave', al:['סינתווייב','synthwave','סינת׳ווייב'],
+  seeds:[['Kavinsky','Nightcall'],['The Midnight','Los Angeles'],['FM-84','Running in the Night']]},
+ {id:'chillwave', he:'צ׳ילווייב', en:'Chillwave', groove:'rock', bpm:100, palette:['synth','egtr'], texture:['vinyl'], vocal:'sing', mood:'bright',
+  tell:'קיץ מטושטש, סינתים רכים, קול רחוק. נעים בלי מאמץ.', q:'chillwave bedroom pop', al:['צ׳ילווייב','chillwave','צילווייב'],
+  seeds:[['Washed Out','Feel It All Around'],['Men I Trust','Show Me How'],['Clairo','Bags']]},
+ {id:'ballad', he:'בלדת פופ', en:'Pop Ballad', groove:'pulse', bpm:72, palette:['piano','strings'], texture:['none'], vocal:'sing', mood:'dark',
+  tell:'פסנתר, קול גדול, רגש בלי הגנות. שיר שבוכים איתו.', q:'pop ballads', al:['בלדה','ballad','שיר עצוב'],
+  seeds:[['Adele','Someone Like You'],['Lewis Capaldi','Someone You Loved'],['Sam Smith','Stay With Me']]},
+ {id:'jazz', he:'ג׳אז', en:'Jazz', groove:'swing', bpm:120, palette:['piano','sub'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'מקצב מתנדנד, פסנתר שמאלתר, בס שהולך. שיחה בין כלים.', q:'jazz classics', al:['גאז','ג׳אז','jazz'],
+  seeds:[['Dave Brubeck','Take Five'],['Miles Davis','So What'],['Bill Evans','Waltz for Debby']]},
+ {id:'gypsy_jazz', he:'ג׳אז צועני', en:'Gypsy Jazz', groove:'swing', bpm:180, palette:['guitar'], texture:['none'], vocal:'none', mood:'bright',
+  tell:'גיטרות מהירות, חיוך, פריז של שנות ה־30.', q:'gypsy jazz manouche', al:['צועני','מנוש','gypsy'],
+  seeds:[['Django Reinhardt','Minor Swing'],['Django Reinhardt','Nuages'],['Django Reinhardt','Djangology']]},
+ {id:'bossa', he:'בוסה נובה', en:'Bossa Nova', groove:'bossa', bpm:130, palette:['guitar','rhodes'], texture:['ocean','none'], vocal:'sing', mood:'bright',
+  tell:'גיטרה ברזילאית רכה, קצב גלי, לחישה. קפה מול הים.', q:'bossa nova', al:['בוסה','bossa','ברזיל'],
+  seeds:[['Stan Getz','The Girl from Ipanema'],['João Gilberto','Chega de Saudade'],['Antonio Carlos Jobim','Wave']]},
+ {id:'neoclassical', he:'ניאו־קלאסי', en:'Neoclassical', groove:'pulse', bpm:70, palette:['piano','strings'], texture:['none','rain'], vocal:'none', mood:'dark',
+  tell:'פסנתר וכלי קשת, בלי מילים. נוגע בלי להסביר.', q:'neoclassical piano', al:['ניאו קלאסי','אינאודי'],
+  seeds:[['Ludovico Einaudi','Nuvole Bianche'],['Max Richter','On the Nature of Daylight'],['Yann Tiersen',"Comptine d'un autre été"]]},
+ {id:'classical', he:'קלאסית', en:'Classical', groove:'pulse', bpm:110, palette:['strings','piano'], texture:['none'], vocal:'none', mood:'bright',
+  tell:'תזמורת, מבנה, מאות שנים של יופי. מוצרט, באך, ויוואלדי.', q:'classical music essentials', al:['קלאסית','קלאסי','מוצרט','באך','ויוואלדי','classical','תזמורת'],
+  seeds:[['Mozart','Eine kleine Nachtmusik'],['Vivaldi','Spring'],['Bach','Air on the G String']]},
+ {id:'cinematic', he:'פסקול / סינמטי', en:'Cinematic', groove:'pulse', bpm:90, palette:['strings','pad','sub'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'מוזיקה של סרט: נבנית לאט, עמוקה, גדולה.', q:'epic soundtrack', al:['פסקול','סרט','סינמטי','soundtrack'],
+  seeds:[['Hans Zimmer','Time'],['Hans Zimmer','Cornfield Chase'],['Ramin Djawadi','Light of the Seven']]},
+ {id:'ambient', he:'אמביינט', en:'Ambient', groove:'pulse', bpm:60, palette:['pad'], texture:['ocean','birds','rain'], vocal:'none', mood:'dark',
+  tell:'בלי ביט, בלי זמן. צליל שממלא חדר. לנשימה ולשינה.', q:'ambient', al:['אמביינט','ambient'],
+  seeds:[['Brian Eno','An Ending (Ascent)'],['Hammock','Breathturn'],['Stars of the Lid','Requiem for Dying Mothers']]},
+ {id:'handpan', he:'האנדפן / מדיטטיבי', en:'Handpan', groove:'pulse', bpm:70, palette:['bell'], texture:['ocean','birds'], vocal:'none', mood:'bright',
+  tell:'כלי מתכת עגול שנשמע כמו מים ופעמונים. שקט שמח.', q:'handpan meditation', al:['האנדפן','handpan','מדיטטיבי'],
+  seeds:[['Hang Massive','Once Again'],['Hang Massive','Released Into Love'],['Malte Marten','Handpan Dream']]},
 ];
+const STYLE = Object.fromEntries(STYLES.map(s => [s.id, s]));
 
-/* R[timbre][tempo][mood][voice] = [name, desc, artists, playlist query, seeds[[artist,title]...]] */
-const R = {
- acoustic:{
-  slow:{
-   minor:{
-    yes:['אינדי פולק','גיטרה אחת, שקט, געגוע. מוזיקה לחורף פנימי.','Bon Iver, Phoebe Bridgers, Sufjan Stevens','indie folk acoustic sad',
-         [['Bon Iver','Skinny Love'],['Damien Rice',"The Blower's Daughter"],['Sufjan Stevens','Fourth of July']]],
-    no:['גיטרה אקוסטית / ניאו־קלאסי','פסנתר וגיטרה בלי מילים, נוגע בלי להסביר.','Ludovico Einaudi, Yann Tiersen, Max Richter','neoclassical piano calm',
-         [['Ludovico Einaudi','Nuvole Bianche'],['Yann Tiersen',"Comptine d'un autre été"],['Max Richter','On the Nature of Daylight']]]},
-   major:{
-    yes:['סינגר־סונגרייטר חמים','קול חם, גיטרה, שמש של אחר הצהריים.','Norah Jones, Jack Johnson, Ben Howard','acoustic chill singer songwriter',
-         [['Norah Jones',"Don't Know Why"],['Jack Johnson','Better Together'],["Israel Kamakawiwo'ole",'Over the Rainbow']]],
-    no:['בוסה נובה / ג׳אז רך','ברזילאי, קליל, קפה על מרפסת.','Stan Getz, Bill Evans, Antônio Carlos Jobim','bossa nova jazz instrumental',
-         [['Bill Evans','Peace Piece'],['Stan Getz','Desafinado'],['Antonio Carlos Jobim','Wave']]]}},
-  mid:{
-   minor:{
-    yes:['אמריקנה / בלוז אקוסטי','סיפורים, גרון חם, כנות.','Hozier, The Civil Wars, Ray LaMontagne','americana folk blues',
-         [['Hozier','Work Song'],['The Civil Wars','Barton Hollow'],['Ray LaMontagne','Trouble']]],
-    no:['פינגרסטייל / גיטרה סולו','גיטרה וירטואוזית שמספרת לבד.','Andy McKee, Jon Gomm, Estas Tonne','fingerstyle guitar instrumental',
-         [['Andy McKee','Drifting'],['Estas Tonne','The Song of the Golden Dragon'],['Jon Gomm','Passionflower']]]},
-   major:{
-    yes:['אינדי פופ אקוסטי / פולק רוק','מחיאות כפיים, פזמון, להקה של חברים.','The Lumineers, Vance Joy, Of Monsters and Men','indie folk pop happy',
-         [['The Lumineers','Ho Hey'],['Vance Joy','Riptide'],['Of Monsters and Men','Little Talks']]],
-    no:['ג׳אז צועני / סווינג','גיטרות קלילות, חיוך, שנות ה־30 בפריז.','Django Reinhardt, Hot Club de France','gypsy jazz manouche',
-         [['Django Reinhardt',"I'll See You in My Dreams"],['Django Reinhardt','Nuages'],['Django Reinhardt','Djangology']]]}},
-  fast:{
-   minor:{
-    yes:['פלמנקו / בלקני','תשוקה, מחיאות כפיים, דרמה.','Gipsy Kings, Goran Bregović, Rosalía','flamenco rumba balkan',
-         [['Gipsy Kings','Bamboleo'],['Goran Bregovic','Kalashnikov'],['Gipsy Kings','Djobi Djoba']]],
-    no:['גיטרת פלמנקו / ג׳אז מנוש','אצבעות בוערות, בלי מילים.','Paco de Lucía, Rodrigo y Gabriela','flamenco guitar instrumental',
-         [['Paco de Lucia','Entre dos aguas'],['Rodrigo y Gabriela','Tamacun'],['Django Reinhardt','Minor Swing']]]},
-   major:{
-    yes:['לטיני / טרופי','ריקוד, חום, שמחה בגוף.','Marc Anthony, Carlos Vives, Gipsy Kings','latin fiesta salsa',
-         [['Marc Anthony','Vivir Mi Vida'],['Carlos Vives','La Bicicleta'],['Gipsy Kings','Volare']]],
-    no:['בלוגראס / קלטי','בנג׳ו, כינור, רגליים שלא נחות.','Flatt & Scruggs, Béla Fleck, Nickel Creek','bluegrass instrumental',
-         [['Flatt & Scruggs','Foggy Mountain Breakdown'],['Nickel Creek','Scotch & Chocolate'],['Bela Fleck','Big Country']]]}}},
- electric:{
-  slow:{
-   minor:{
-    yes:['דרים פופ','ערפל, הד, שירה שמרחפת מעל.','Beach House, Cigarettes After Sex, Cocteau Twins','dream pop shoegaze',
-         [['Beach House','Space Song'],['Cigarettes After Sex','Apocalypse'],['Cocteau Twins','Cherry-coloured Funk']]],
-    no:['סינת׳ווייב / אמביינט רטרו','ניאון בלילה, נסיעה ארוכה.','Vangelis, Boards of Canada, Com Truise','synthwave ambient retro',
-         [['Vangelis','Blade Runner Blues'],['Boards of Canada','Dayvan Cowboy'],['Com Truise','Flightwave']]]},
-   major:{
-    yes:['צ׳ילווייב / בדרום פופ','קיץ מטושטש, רך, נעים.','Washed Out, Men I Trust, Clairo','chillwave bedroom pop',
-         [['Washed Out','Feel It All Around'],['Men I Trust','Show Me How'],['Clairo','Bags']]],
-    no:['צ׳ילאאוט אלקטרוני','גלים של סינת׳, לנשום.','Tycho, Air, Boards of Canada','electronic chillout instrumental',
-         [['Tycho','A Walk'],['Air',"La femme d'argent"],['Boards of Canada','Roygbiv']]]}},
-  mid:{
-   minor:{
-    yes:['סינת׳ אפל / פוסט־פאנק','שנות ה־80 הקודרות, יופי קר.','The Weeknd, Depeche Mode, The Cure','dark synth pop 80s',
-         [['The Weeknd','Save Your Tears'],['Depeche Mode','Enjoy the Silence'],['The Cure','A Forest']]],
-    no:['דארקסינת׳','פסקול לסרט שלא נעשה.','John Carpenter, Kyle Dixon & Michael Stein, Gesaffelstein','darksynth soundtrack',
-         [['John Carpenter','Halloween Theme'],['Kyle Dixon & Michael Stein','Stranger Things'],['Gesaffelstein','Opr']]]},
-   major:{
-    yes:['סינת׳־פופ','פזמונים גדולים, סינתים נוצצים.','Dua Lipa, CHVRCHES, Carly Rae Jepsen','synth pop hits',
-         [['Dua Lipa','Levitating'],['CHVRCHES','The Mother We Share'],['Carly Rae Jepsen','Run Away With Me']]],
-    no:['נו־דיסקו / פאנק אלקטרוני','גרוב רובוטי שמחייך.','Daft Punk, Todd Terje, Justice','nu disco instrumental',
-         [['Daft Punk','Voyager'],['Todd Terje','Inspector Norse'],['Daft Punk','Aerodynamic']]]}},
-  fast:{
-   minor:{
-    yes:['טכנו ווקאלי / דארק אלקטרו','אפל, חזק, מועדון בשלוש לפנות בוקר.','Fred again.., Peggy Gou, Crystal Castles','dark electro vocal techno',
-         [['Fred again..','Marea (We’ve Lost Dancing)'],['Peggy Gou','It Makes You Forget (Itgehane)'],['Crystal Castles','Not in Love']]],
-    no:['טכנו / דראם אנד בייס','מכונה, דיוק, טראנס מתוך קצב.','Charlotte de Witte, Eric Prydz, Noisia','techno peak time',
-         [['Charlotte de Witte','Formula'],['Eric Prydz','Opus'],['Noisia','Machine Gun']]]},
-   major:{
-    yes:['דאנס פופ / EDM','ידיים למעלה, פסטיבל.','Avicii, Calvin Harris, David Guetta','edm dance hits',
-         [['Avicii','Levels'],['Calvin Harris','Feel So Close'],['David Guetta','Titanium']]],
-    no:['האוס / טראנס','עולה ועולה ולא נגמר.','Eric Prydz, deadmau5, Infected Mushroom','progressive house trance',
-         [['Eric Prydz','Pjanoo'],['deadmau5','Strobe'],['Infected Mushroom','Vicious Delicious']]]}}},
- deep:{
-  slow:{
-   minor:{
-    yes:['טריפ הופ / R&B אלטרנטיבי','איטי, כבד, מסתורי.','Massive Attack, Portishead, FKA twigs','trip hop',
-         [['Massive Attack','Teardrop'],['Portishead','Glory Box'],['FKA twigs','Two Weeks']]],
-    no:['אמביינט','בלי ביט, בלי זמן. למדיטציה ולשינה.','Brian Eno, Aphex Twin, Max Richter','ambient sleep',
-         [['Brian Eno','An Ending (Ascent)'],['Aphex Twin','#3'],['Max Richter','Dream 3 (in the midst of my life)']]]},
-   major:{
-    yes:['נאו־סול / R&B רך','חם, חושני, סליחה לעצמך.','SZA, Daniel Caesar, Erykah Badu','neo soul r&b chill',
-         [['Daniel Caesar','Best Part'],['SZA','Good Days'],['Erykah Badu',"Didn't Cha Know"]]],
-    no:['לו־פיי צ׳יל','ביטים רכים ברקע, ראש שקט.','Nujabes, Idealism, Jinsang','lofi chill beats',
-         [['Nujabes','Aruarian Dance'],['Idealism','Controlla'],['Jinsang','Affection']]]}},
-  mid:{
-   minor:{
-    yes:['טראפ / R&B אפל','בס עמוק, לילה בעיר.','The Weeknd, Bryson Tiller, Travis Scott','dark r&b trap',
-         [['The Weeknd','The Hills'],['Bryson Tiller',"Don't"],['Travis Scott','goosebumps']]],
-    no:['ביטים כבדים / דאב','הד, בס, חלל.','Clams Casino, Burial, Flying Lotus','instrumental beats bass',
-         [['Clams Casino',"I'm God"],['Burial','Archangel'],['Flying Lotus','Zodiac Shit']]]},
-   major:{
-    yes:['R&B / היפ הופ חם','גרוב, חיוך, ראש מהנהן.','Anderson .Paak, Kaytranada, Childish Gambino','feel good r&b hip hop',
-         [['Anderson .Paak','Come Down'],['Kaytranada','10%'],['Anderson .Paak','Make It Better']]],
-    no:['לו־פיי היפ הופ','סמפלים חמים, תופים רכים.','J Dilla, Tom Misch, Yussef Kamaal','lofi hip hop instrumental',
-         [['J Dilla','Workinonit'],['Tom Misch','Lift Off'],['Yussef Kamaal','Strings of Light']]]}},
-  fast:{
-   minor:{
-    yes:['טכנו מלודי','עמוק, רגשי, היפנוטי.','CamelPhat, Anyma, Boris Brejcha','melodic techno',
-         [['CamelPhat','Cola'],['Anyma','Eternity'],['Boris Brejcha','Gravity']]],
-    no:['מינימל / טכנו עמוק','חזרתי, עמוק, נכנסים לטראנס.','Stephan Bodzin, Tale Of Us, ARTBAT','deep techno minimal',
-         [['Stephan Bodzin','Singularity'],['Tale Of Us','Nova Two'],['ARTBAT','Upperground']]]},
-   major:{
-    yes:['דיפ האוס / אפרו־האוס','חם, רקיד, שמש שוקעת על הים.','Black Coffee, Disclosure, Keinemusik','afro house deep house',
-         [['Black Coffee','Drive'],['Disclosure','Latch'],['&ME','The Rapture Pt.II']]],
-    no:['דיפ האוס אינסטרומנטלי','פסנתר, בס עגול, גרוב שלא עוצר.','Kerri Chandler, Mr. Fingers, Folamour','deep house instrumental',
-         [['Kerri Chandler','Rain'],['Mr. Fingers','Can You Feel It'],['Folamour','Devoted to U']]]}}},
+/* שמות לשכבות, בשפה של חברה ולא של מהנדס */
+const LABELS = {
+  groove: {
+    four:{n:'בום־בום־בום', d:'ישר, לרקוד'}, half:{n:'כבד ואיטי', d:'808 עמוק'}, boombap:{n:'מתנדנד', d:'ראש מהנהן'},
+    break:{n:'שבור וקופץ', d:'ברייקביט'}, dembow:{n:'בום־צ׳ק־בום', d:'לטיני'}, afro:{n:'מתגלגל', d:'כלי הקשה'},
+    rock:{n:'ישר וחי', d:'להקה'}, swing:{n:'מתנדנד רך', d:'מברשות'}, pulse:{n:'בלי תופים', d:'רק נשימה'},
+    dnb:{n:'מהיר מאוד', d:'אדרנלין'}, maqsum:{n:'דום־טק', d:'מזרחי'}, onedrop:{n:'רגוע ונופל', d:'נינוח'},
+    bossa:{n:'גלי', d:'ברזילאי'}, rumba:{n:'כפיים וגיטרה', d:'ספרדי'},
+  },
+  palette: {
+    pad:{n:'ענן', d:'משטח רך'}, rhodes:{n:'פסנתר חשמלי', d:'חם, רועד'}, sub:{n:'בס עמוק', d:'מורגש בגוף'},
+    synth:{n:'סינת׳ נוצץ', d:'חשמלי'}, piano:{n:'פסנתר', d:'אקורדים'}, guitar:{n:'גיטרה', d:'אקוסטית'},
+    egtr:{n:'גיטרה חשמלית', d:'מחוספסת'}, strings:{n:'כלי קשת', d:'כינורות'}, oud:{n:'עוד', d:'פריטה מזרחית'},
+    bell:{n:'פעמונים', d:'מתכת ומים'},
+  },
+  texture: {
+    none:{n:'נקי', d:'כלום מסביב'}, vinyl:{n:'תקליט', d:'פצפוץ ישן'}, birds:{n:'ציפורים', d:'בוקר בחוץ'},
+    rain:{n:'גשם', d:'בפנים וחם'}, ocean:{n:'ים', d:'גלים'}, shaker:{n:'שייקר', d:'כלי הקשה'}, clap:{n:'מחיאות כפיים', d:'ביחד'},
+  },
+  mood: { bright:{n:'בהיר', d:'פתוח, מרים'}, dark:{n:'עמוק', d:'מכיל, מרגיש'}, east:{n:'מזרחי', d:'סלסול, חום'} },
+  tempo: { slow:{n:'לאט', d:'להאט'}, mid:{n:'בינוני', d:'הליכה'}, fast:{n:'מהר', d:'אנרגיה'} },
+  vocal: { none:{n:'בלי מילים', d:'מקום לראש'}, sing:{n:'קול שר', d:'מישהו איתך'}, rap:{n:'ראפ', d:'מילים בקצב'} },
 };
-const WHY = {
-  timbre:{acoustic:'צליל <b>חם ואקוסטי</b> – הגוף קולט אותו כקרוב ואנושי, מרגיע את מערכת העצבים.',electric:'צליל <b>חשמלי</b> – מעיר, מחדד, מכניס תנועה.',deep:'צליל <b>עמוק</b> – הבס מורגש בגוף יותר מאשר נשמע, עוטף ומייצב.'},
-  tempo:{slow:'דופק <b>איטי</b> – הלב מסתנכרן אליו תוך שניות ומאט. זה מה שמרגיע.',mid:'דופק <b>בינוני</b> – קצב של הליכה. מיקוד בלי מתח.',fast:'דופק <b>מהיר</b> – מעלה אנרגיה, משחרר, מוציא החוצה.'},
-  mood:{major:'אווירה <b>בהירה</b> – מרימה, פותחת.',minor:'אווירה <b>עמוקה</b> – לא מנסה לשמח, מרשה להרגיש. לפעמים זה בדיוק מה שצריך.'},
-  voice:{yes:'<b>עם קול</b> – את רוצה חברה, מישהו שמרגיש איתך.',no:'<b>בלי קול</b> – את רוצה מקום לראש שלך.'},
+const DIMS = {
+  groove:  {q:'איזה דופק עכשיו?',          sub:'רק הביט. תקשיבי עם הגוף.'},
+  palette: {q:'איזה צליל על הביט?',        sub:'הביט ממשיך. מה נעים להניח עליו?'},
+  palette2:{q:'ועוד צליל מעל?',            sub:'או שמספיק ככה.'},
+  texture: {q:'מה יש באוויר מסביב?',       sub:'השכבה הדקה. מה שלא שמים לב אליו – ומרגישים.'},
+  mood:    {q:'איזה צבע?',                 sub:'אותו ביט ואותם צלילים. צבע אחר.'},
+  tempo:   {q:'באיזו מהירות?',             sub:'אותו דבר, מהירות אחרת.'},
+  vocal:   {q:'ועל כל זה – מילים?',        sub:'השכבה האחרונה.'},
 };
-const enc = s => encodeURIComponent(s);
-const yt = s => `https://www.youtube.com/results?search_query=${enc(s+' music mix')}`;
-const sp = s => `https://open.spotify.com/search/${enc(s)}`;
-const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const tempoBand = bpm => bpm < 95 ? 'slow' : bpm < 125 ? 'mid' : 'fast';
+if (typeof module !== 'undefined') module.exports = { STYLES, LABELS };
 
-/* Which leaf cell does a card at the current layer play? Only one variable changes between cards. */
-function cellFor(v){
-  const L=LAYERS[S.layer].id, p=S.picks;
-  const c={timbre:p.timbre||'acoustic',tempo:p.tempo||'mid',mood:p.mood||'major',voice:p.voice||'yes'};
-  c[L]=v;
-  if(L==='timbre'){ c.tempo='mid'; c.mood='major'; c.voice='yes'; }
-  if(L==='tempo'){ c.mood='major'; c.voice='yes'; }
-  if(L==='mood'){ c.voice='yes'; }
-  return c;
+/* מנוע צליל חי: הכול מסונתז בדפדפן, שכבה על שכבה, על שעון אחד. */
+let ctx, master, analyser, reverbIn, noiseBuf;
+const KS = {};
+function ensureCtx(){
+  if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createDynamicsCompressor(); master.threshold.value = -16; master.ratio.value = 4;
+  const out = ctx.createGain(); out.gain.value = 0.9;
+  analyser = ctx.createAnalyser(); analyser.fftSize = 512;
+  master.connect(out); out.connect(analyser); analyser.connect(ctx.destination);
+  const rv = ctx.createConvolver(); const len = Math.floor(ctx.sampleRate * 2.6), ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
+  rv.buffer = ir; reverbIn = ctx.createGain(); reverbIn.gain.value = 0.3; reverbIn.connect(rv); rv.connect(master);
+  noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+  const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
 }
-const leaf = c => R[c.timbre][c.tempo][c.mood][c.voice];
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function env(g, t, a, peak, d, sus = 0) {
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0001, sus), t + a + d);
+}
+function osc(type, f, t, dur, dest, detune = 0) {
+  const o = ctx.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = detune;
+  o.connect(dest); o.start(t); o.stop(t + dur + 0.05); return o;
+}
+function lp(f, q = 0.7) { const b = ctx.createBiquadFilter(); b.type = 'lowpass'; b.frequency.value = f; b.Q.value = q; return b; }
+function bp(f, q = 1) { const b = ctx.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = f; b.Q.value = q; return b; }
+function hp(f) { const b = ctx.createBiquadFilter(); b.type = 'highpass'; b.frequency.value = f; return b; }
+function chain(...n) { for (let i = 0; i < n.length - 1; i++) n[i].connect(n[i + 1]); return n[0]; }
+function noise(t, dur, filt, vol, bus, a = 0.001) {
+  const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+  const g = ctx.createGain(); env(g, t, a, vol, dur);
+  chain(s, filt, g, bus); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+}
+function send(node, amt) { const g = ctx.createGain(); g.gain.value = amt; node.connect(g); g.connect(reverbIn); }
 
-/* ===================== TRACK RESOLUTION ===================== */
-const trackCache = {};
-async function resolveCell(c){
-  const key=[c.timbre,c.tempo,c.mood,c.voice].join('/');
-  if(trackCache[key]) return trackCache[key];
-  const seeds=leaf(c)[4];
-  const t = await api('pick',{s:seeds});
-  if(t && t.preview) trackCache[key]=t;
-  return t;
+/* ---------- drums ---------- */
+function kick(t, bus, v = 1, long = false) {
+  const g = ctx.createGain(); const o = ctx.createOscillator();
+  o.frequency.setValueAtTime(long ? 120 : 160, t); o.frequency.exponentialRampToValueAtTime(long ? 38 : 45, t + (long ? 0.25 : 0.1));
+  env(g, t, 0.002, v, long ? 0.9 : 0.35); o.connect(g); g.connect(bus); o.start(t); o.stop(t + (long ? 1 : 0.4));
+}
+const snare = (t, bus, v = 0.5) => { noise(t, 0.18, bp(1800, 0.8), v, bus); const g = ctx.createGain(); env(g, t, 0.001, v * 0.7, 0.1); osc('triangle', 190, t, 0.12, g); g.connect(bus); };
+const clap = (t, bus, v = 0.5) => { [0, 0.012, 0.024].forEach(o => noise(t + o, 0.03, bp(1400, 1.5), v * 0.8, bus)); noise(t + 0.03, 0.2, bp(1500, 1.2), v, bus); };
+const hat = (t, bus, v = 0.18, d = 0.04) => noise(t, d, hp(7500), v, bus);
+const rim = (t, bus, v = 0.35) => { noise(t, 0.03, bp(2500, 4), v, bus); const g = ctx.createGain(); env(g, t, 0.001, v * 0.5, 0.04); osc('square', 800, t, 0.05, g); g.connect(bus); };
+const tom = (t, bus, f = 140, v = 0.5) => { const g = ctx.createGain(); env(g, t, 0.002, v, 0.25); const o = osc('sine', f, t, 0.3, g); o.frequency.exponentialRampToValueAtTime(f * 0.6, t + 0.25); g.connect(bus); };
+const doum = (t, bus, v = 0.8) => { const g = ctx.createGain(); env(g, t, 0.002, v, 0.4); const o = osc('sine', 110, t, 0.45, g); o.frequency.exponentialRampToValueAtTime(70, t + 0.3); g.connect(bus); };
+const tek = (t, bus, v = 0.4) => { noise(t, 0.04, bp(3500, 3), v, bus); const g = ctx.createGain(); env(g, t, 0.001, v * 0.6, 0.05); osc('sine', 650, t, 0.06, g); g.connect(bus); };
+const ride = (t, bus, v = 0.12) => { noise(t, 0.35, hp(5000), v, bus); const g = ctx.createGain(); env(g, t, 0.001, v * 0.4, 0.4); osc('square', 5100, t, 0.4, g); g.connect(bus); };
+const brush = (t, bus, v = 0.18) => noise(t, 0.16, lp(4000), v, bus, 0.03);
+const shakerHit = (t, bus, v = 0.08) => noise(t, 0.05, hp(6000), v, bus, 0.01);
+
+/* דפוסי ביט: 16 צעדים לתיבה */
+const GROOVES = {
+  four:   (s, t, b, d) => { if (s % 4 === 0) kick(t, b); if (s === 4 || s === 12) clap(t, b, 0.4); if (s % 4 === 2) hat(t, b, 0.22, 0.12); else if (s % 2 === 0) hat(t, b, 0.08); },
+  half:   (s, t, b, d) => { if (s === 0 || s === 10) kick(t, b, 1, true); if (s === 8) { clap(t, b, 0.45); snare(t, b, 0.3); } hat(t, b, s % 2 ? 0.06 : 0.12); if (s >= 12 && s % 2 === 1) hat(t + d / 2, b, 0.08); },
+  boombap:(s, t, b, d) => { const sw = s % 2 ? d * 0.18 : 0; if (s === 0 || s === 7 || s === 10) kick(t + sw, b, 0.9); if (s === 4 || s === 12) snare(t + sw, b, 0.55); if (s % 2 === 0) hat(t + sw, b, 0.12); },
+  break:  (s, t, b, d) => { if (s === 0 || s === 10) kick(t, b); if (s === 4 || s === 12) snare(t, b, 0.55); if (s === 7 || s === 15) snare(t, b, 0.15); if (s % 2 === 0) hat(t, b, 0.14); },
+  dembow: (s, t, b, d) => { if (s % 4 === 0) kick(t, b, 0.9); if ([3, 6, 11, 14].includes(s)) snare(t, b, 0.4); if (s % 2 === 0) hat(t, b, 0.1); },
+  afro:   (s, t, b, d) => { if (s === 0 || s === 6 || s === 10) kick(t, b, 0.85); if ([3, 7, 11, 14].includes(s)) rim(t, b, 0.3); if (s === 13) tom(t, b, 180, 0.35); if (s === 15) tom(t, b, 130, 0.35); shakerHit(t, b, s % 4 === 2 ? 0.12 : 0.06); },
+  rock:   (s, t, b, d) => { if (s === 0 || s === 8 || s === 10) kick(t, b, 0.9); if (s === 4 || s === 12) snare(t, b, 0.6); if (s % 2 === 0) hat(t, b, 0.15); },
+  swing:  (s, t, b, d) => { if ([0, 4, 8, 12].includes(s)) ride(t, b); if (s === 7 || s === 15) ride(t + d * 0.33, b, 0.08); if (s === 4 || s === 12) brush(t, b); if (s === 0) kick(t, b, 0.35); },
+  pulse:  (s, t, b, d) => { if (s === 0) kick(t, b, 0.35); if (s === 3) kick(t, b, 0.18); },
+  dnb:    (s, t, b, d) => { if (s === 0 || s === 10) kick(t, b); if (s === 4 || s === 12) snare(t, b, 0.6); if (s === 7) snare(t, b, 0.15); if (s % 2 === 0) hat(t, b, 0.13); },
+  maqsum: (s, t, b, d) => { if (s === 0 || s === 8) doum(t, b); if ([2, 6, 12].includes(s)) tek(t, b); if (s % 2 === 1) tek(t, b, 0.1); if (s % 2 === 0) shakerHit(t, b, 0.05); },
+  onedrop:(s, t, b, d) => { if (s === 8) { kick(t, b, 0.9); rim(t, b, 0.45); } if (s % 2 === 0) hat(t + (s % 4 ? d * 0.15 : 0), b, 0.1); },
+  bossa:  (s, t, b, d) => { if ([0, 3, 6, 10, 12].includes(s)) rim(t, b, 0.25); if (s === 0 || s === 6 || s === 8 || s === 14) kick(t, b, 0.4); shakerHit(t, b, 0.05); },
+  rumba:  (s, t, b, d) => { if (s === 0 || s === 6 || s === 10) kick(t, b, 0.55); if (s === 4 || s === 12) clap(t, b, 0.45); if (s === 14) clap(t, b, 0.2); },
+};
+
+/* ---------- harmony ---------- */
+const HARM = {
+  bright: { ch: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], sc: [60, 62, 64, 65, 67, 69, 71] },
+  dark:   { ch: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], sc: [57, 59, 60, 62, 64, 65, 67] },
+  east:   { ch: [[52, 56, 59], [53, 57, 60], [50, 53, 57], [52, 56, 59]], sc: [52, 53, 56, 57, 59, 60, 62] },
+};
+
+/* ---------- instruments ---------- */
+function ksBuf(f, bright) {
+  const k = Math.round(f) + (bright ? 'b' : ''); if (KS[k]) return KS[k];
+  const sr = ctx.sampleRate, N = Math.round(sr / f), len = Math.floor(sr * 1.6), buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0), r = new Float32Array(N);
+  for (let i = 0; i < N; i++) r[i] = Math.random() * 2 - 1;
+  const damp = bright ? 0.997 : 0.994; let x = 0;
+  for (let i = 0; i < len; i++) { const c = r[x], n = r[(x + 1) % N]; d[i] = c; r[x] = damp * 0.5 * (c + n); x = (x + 1) % N; }
+  return KS[k] = buf;
+}
+function pluck(m, t, v, bus, bright = false) {
+  const s = ctx.createBufferSource(); s.buffer = ksBuf(mtof(m), bright); const g = ctx.createGain(); g.gain.value = v;
+  chain(s, lp(bright ? 6000 : 3500), g, bus); send(g, 0.25); s.start(t);
+}
+function voiceSynth(m, t, dur, bus, v, formants) {
+  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m);
+  const l = ctx.createOscillator(); l.frequency.value = 5.3; const lg = ctx.createGain(); lg.gain.value = 8; l.connect(lg); lg.connect(o.detune);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + Math.min(0.15, dur / 3)); g.gain.setValueAtTime(v, t + dur * 0.7); g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  formants.forEach(([f, a], i) => { const b = bp(f, 9 + i * 2); const fg = ctx.createGain(); fg.gain.value = a * 1.7; o.connect(b); b.connect(fg); fg.connect(g); });
+  g.connect(bus); send(g, 0.5); o.start(t); l.start(t); o.stop(t + dur + 0.05); l.stop(t + dur + 0.05);
+}
+const VOWELS = [[[700, 1], [1150, .5], [2600, .25]], [[400, 1], [1900, .4], [2600, .2]], [[300, 1], [870, .4], [2250, .2]], [[500, 1], [900, .5], [2400, .2]]];
+
+const INSTR = {
+  pad(s, t, c, sc, bus, d, bar) { if (s) return; c.forEach(n => { const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05, t + 0.5); g.gain.setValueAtTime(0.05, t + d * 14); g.gain.linearRampToValueAtTime(0.0001, t + d * 16); const f = lp(900); f.connect(g); g.connect(bus); send(g, 0.6); osc('sawtooth', mtof(n), t, d * 16, f, -7); osc('triangle', mtof(n + 12), t, d * 16, f, 6); }); },
+  rhodes(s, t, c, sc, bus, d) { if (s !== 0 && s !== 6 && s !== 10) return; const v = s ? 0.05 : 0.07; c.forEach(n => { const g = ctx.createGain(); env(g, t, 0.005, v, d * 7); const tr = ctx.createOscillator(); tr.frequency.value = 4.5; const tg = ctx.createGain(); tg.gain.value = v * 0.4; tr.connect(tg); tg.connect(g.gain); tr.start(t); tr.stop(t + d * 8); osc('sine', mtof(n), t, d * 8, g); osc('sine', mtof(n + 12), t, d * 2, g); g.connect(bus); send(g, 0.3); }); },
+  sub(s, t, c, sc, bus, d, bar, groove) { const hits = groove === 'half' ? [0, 10] : groove === 'pulse' ? [0] : groove === 'onedrop' ? [0, 6, 8] : [0, 4, 8, 12]; if (!hits.includes(s)) return; const len = groove === 'half' ? d * 9 : groove === 'pulse' ? d * 15 : d * 3.5; const g = ctx.createGain(); env(g, t, 0.01, 0.22, len, 0.0001); osc('sine', mtof(c[0] - 24), t, len, g); g.connect(bus); },
+  synth(s, t, c, sc, bus, d) { if (s % 2) return; const arp = [c[0], c[2], c[1], c[2] + 12, c[0] + 12, c[2], c[1] + 12, c[2]]; const n = arp[(s / 2) % 8] + 12; const g = ctx.createGain(); env(g, t, 0.005, 0.07, d * 1.6); const f = lp(2800, 4); f.frequency.setValueAtTime(3500, t); f.frequency.exponentialRampToValueAtTime(900, t + d * 1.8); chain(f, g, bus); send(g, 0.35); osc('sawtooth', mtof(n), t, d * 2, f); osc('sawtooth', mtof(n), t, d * 2, f, 10); },
+  piano(s, t, c, sc, bus, d, bar) { const note = (m, v, len) => { const g = ctx.createGain(); env(g, t, 0.003, v, len); const f = lp(3200); chain(f, g, bus); send(g, 0.25); osc('triangle', mtof(m), t, len, f); osc('sine', mtof(m + 12), t, len * 0.5, f); };
+    if (s === 0 || s === 10) c.forEach(n => note(n, 0.08, 1.6)); if (s === 6 || s === 14) note(sc[(bar * 3 + s) % 7] + 12, 0.07, 1); },
+  guitar(s, t, c, sc, bus, d, bar, groove) {
+    if (groove === 'onedrop') { if (s === 4 || s === 12) c.forEach((n, i) => pluck(n + 12, t + i * 0.008, 0.35, bus, true)); return; }
+    if (groove === 'swing') { if (s % 4 === 0) c.forEach((n, i) => pluck(n, t + i * 0.01, 0.4, bus)); return; }
+    const notes = [c[0] - 12, c[0], c[1], c[2], c[0] + 12];
+    if (s === 0 || s === 8) notes.forEach((n, i) => pluck(n, t + i * 0.022, 0.5, bus));
+    if (s === 6 || s === 14 || s === 4 || s === 12) [c[1] + 12, c[2], c[0] + 12].forEach((n, i) => pluck(n, t + i * 0.015, 0.28, bus)); },
+  egtr(s, t, c, sc, bus, d) { if (s % 2) return; const ws = ctx.createWaveShaper(); const cv = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * 4); } ws.curve = cv;
+    const g = ctx.createGain(); env(g, t, 0.004, 0.05, d * 1.8); const f = lp(2400); chain(ws, f, g, bus); send(g, 0.2); [c[0] - 12, c[0] - 5].forEach(n => osc('sawtooth', mtof(n), t, d * 2, ws, Math.random() * 8)); },
+  strings(s, t, c, sc, bus, d) { if (s) return; [c[0] - 12, ...c].forEach(n => { const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.035, t + 0.6); g.gain.setValueAtTime(0.035, t + d * 14); g.gain.linearRampToValueAtTime(0.0001, t + d * 16); const f = lp(1600); chain(f, g, bus); send(g, 0.6); [-9, 0, 8].forEach(dt => osc('sawtooth', mtof(n), t, d * 16, f, dt)); }); },
+  oud(s, t, c, sc, bus, d, bar) { if (s % 2 && s !== 15) return; const phrase = [0, 1, 2, 1, 3, 2, 1, 0]; const i = phrase[(s >> 1) % 8]; const m = sc[(i + bar) % 7] + 12; pluck(m, t, 0.42, bus, true); if (s === 14) pluck(m - 1, t + d / 2, 0.25, bus, true); },
+  bell(s, t, c, sc, bus, d, bar) { if (s % 4) return; const m = c[(s / 4 + bar) % 3] + 24; const g = ctx.createGain(); g.connect(bus); send(g, 0.5); [[1, 0.06, 2.2], [2.76, 0.025, 1], [5.4, 0.012, 0.5]].forEach(([r, v, len]) => { const gg = ctx.createGain(); env(gg, t, 0.002, v, len); gg.connect(g); osc('sine', mtof(m) * r, t, len, gg); }); },
+};
+
+/* ---------- textures ---------- */
+const TEX = {
+  none() {},
+  birds(s, t, bus, d) { if (s % 2 || Math.random() > 0.28) return; const n = 2 + Math.floor(Math.random() * 4), base = 2600 + Math.random() * 2200;
+    for (let i = 0; i < n; i++) { const tt = t + i * (0.07 + Math.random() * 0.05); const g = ctx.createGain(); env(g, tt, 0.005, 0.035, 0.07); const o = osc('sine', base, tt, 0.09, g); o.frequency.setValueAtTime(base * (1 + Math.random() * 0.3), tt); o.frequency.exponentialRampToValueAtTime(base * (0.7 + Math.random() * 0.5), tt + 0.07); g.connect(bus); send(g, 0.4); } },
+  rain(s, t, bus, d) { if (s === 0) { const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.06, t + 0.3); g.gain.setValueAtTime(0.06, t + d * 15); g.gain.linearRampToValueAtTime(0.0001, t + d * 16.5); const s2 = ctx.createBufferSource(); s2.buffer = noiseBuf; s2.loop = true; chain(s2, bp(2500, 0.5), g, bus); s2.start(t); s2.stop(t + d * 17); } if (Math.random() < 0.5) noise(t + Math.random() * d, 0.015, bp(4000 + Math.random() * 3000, 6), 0.05, bus); },
+  ocean(s, t, bus, d) { if (s !== 0) return; const len = d * 16; const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.11, t + len * 0.45); g.gain.linearRampToValueAtTime(0.0001, t + len * 1.05); const s2 = ctx.createBufferSource(); s2.buffer = noiseBuf; s2.loop = true; const f = lp(500); f.frequency.setValueAtTime(300, t); f.frequency.linearRampToValueAtTime(1200, t + len * 0.45); f.frequency.linearRampToValueAtTime(300, t + len); chain(s2, f, g, bus); s2.start(t); s2.stop(t + len * 1.1); },
+  vinyl(s, t, bus, d) { if (s === 0) noise(t, d * 16, bp(5000, 0.3), 0.012, bus, 0.2); for (let i = 0; i < 2; i++) if (Math.random() < 0.35) noise(t + Math.random() * d, 0.004, hp(2000), 0.12, bus); },
+  shaker(s, t, bus, d) { shakerHit(t, bus, s % 4 === 2 ? 0.1 : 0.05); },
+  clap(s, t, bus, d) { if (s === 4 || s === 12) clap(t, bus, 0.35); if (s === 10 || s === 15) clap(t, bus, 0.15); },
+};
+
+/* ---------- vocals ---------- */
+function vocal(kind, s, t, c, sc, bus, d, bar) {
+  if (kind === 'sing') { if (s === 0 || s === 8) { const pool = [c[2] + 12, c[1] + 12, c[0] + 12, sc[(bar + 4) % 7] + 12]; voiceSynth(pool[(bar * 2 + (s ? 1 : 0)) % 4], t, d * 7.5, bus, 0.35, VOWELS[bar % 2 ? 0 : 3]); } }
+  else if (kind === 'rap') { if ([0, 2, 3, 5, 6, 8, 10, 11, 13].includes(s)) voiceSynth(c[0] + 12 + [0, 2, -1, 3][s % 4], t, d * 0.8, bus, 0.32, VOWELS[(s + bar) % 4]); }
 }
 
-/* ===================== APP ===================== */
-let S = {screen:'home', layer:0, picks:{}, group:false, votes:{}, tracks:{}, context:null, played:{}};
-const $app=document.getElementById('app');
-
-function render(){
-  stopAll();
-  if(S.screen==='home'||S.screen==='intro') return renderHome();
-  if(S.screen==='talk') return renderTalk();
-  if(S.screen==='trust') return renderTrust();
-  if(S.screen==='layer') return renderLayer();
-  if(S.screen==='result') return renderResult();
+/* ---------- transport ---------- */
+let player = null;
+function stopAll(fade = 0.12) {
+  if (!player) return; clearInterval(player.timer);
+  const g = player.bus, t = ctx.currentTime; g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + fade);
+  setTimeout(() => { try { g.disconnect(); } catch (e) {} }, fade * 1000 + 300); player = null;
 }
-function renderHome(){
-  const yes=ME?ME.yes:null, notes=(ME&&ME.notes)||[];
-  const greet = ME===null ? 'מתחבר…'
-    : yes===0 ? 'עוד לא מכיר אותך. אני לא יודע מה את אוהבת בבוקר, מה בערב, מה כשאת עצבנית – אז עדיין אל תסמכי עליי. בואי נקשיב ביחד, קצר.'
-    : yes<6 ? `שמעתי אותך אומרת "זה" ${yes===1?'פעם אחת':yes===2?'פעמיים':yes+' פעמים'}. מתחיל להבין, עוד לא מספיק בשביל לסמוך עליי.`
-    : `${yes} פעמים אמרת לי "זה". אני כבר מכיר אותך קצת.`;
-  $app.innerHTML=`
-   <div class="hero" style="padding-top:18px">
-     <div class="big">〰️</div>
-     <h1>התדר שלך עכשיו</h1>
-     <p id="greet">${greet}</p>
-     ${notes.length?`<div class="why" style="text-align:right"><h2 style="font-size:16px">שמתי לב</h2><ul>${notes.slice(0,3).map(n=>`<li>${esc(n.note)}</li>`).join('')}</ul></div>`:''}
-     ${S.context?`<div class="pill" style="display:inline-block;margin:0 auto 10px">עכשיו: ${esc(S.context)} <span onclick="S.context=null;render()" style="cursor:pointer;margin-right:6px">✕</span></div>`:''}
-     <button class="btn primary" onclick="startListen()">🎧 בואי נקשיב</button>
-     <button class="btn ghost" style="color:var(--text);font-weight:700" onclick="S.screen='trust';render()">🤝 תסמוך עליי</button>
-     <button class="btn ghost" onclick="S.screen='talk';render()">💬 מה קורה?</button>
-     <div class="tiny">${ME&&ME.listen_seconds?`קטעים של ${SEG_LEN} שניות. ככל שאני מכיר אותך יותר, הם מתארכים.`:'קטעים קצרים. בלי שאלונים.'}</div>
-   </div>`;
-  if(ME===null) loadMe().then(()=>{ if(S.screen==='home') render(); });
-}
-function startListen(){ ensureAudio(); S={screen:'layer',layer:0,picks:{},group:false,votes:{},tracks:{},context:S.context,played:{}}; render(); }
-
-/* ---- מה קורה? ---- */
-const CHIPS=['עצבנית','עייפה','שמחה','צריכה להתרכז','עצובה','לחוצה','בדרך','סתם, לגלות'];
-function renderTalk(){
-  $app.innerHTML=`
-   <div class="top"><span class="pill">מה קורה</span><button class="back" onclick="S.screen='home';render()">→ חזרה</button></div>
-   <div class="q">מה קורה אצלך עכשיו?</div>
-   <div class="sub">מילה או שתיים. זה לא שאלון – זה כדי שאזכור מה עבד לך ברגעים כאלה.</div>
-   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">${CHIPS.map(c=>`<button class="pill" style="font-size:15px;color:var(--text);cursor:pointer" onclick="saidContext('${c}')">${c}</button>`).join('')}</div>
-   <input id="ctxIn" class="pill" style="width:100%;font:inherit;font-size:17px;color:var(--text);padding:14px 16px;border-radius:16px;background:var(--card)" placeholder="או במילים שלך…" autocomplete="off">
-   <button class="btn primary" onclick="saidContext(document.getElementById('ctxIn').value)">סיפרתי</button>`;
-  setTimeout(()=>{ const i=document.getElementById('ctxIn'); if(i){ i.addEventListener('keydown',e=>{ if(e.key==='Enter') saidContext(i.value); }); } },0);
-}
-async function saidContext(txt){
-  txt=(txt||'').trim(); if(!txt) return;
-  S.context=txt;
-  moment({action:'talk', layer:null, reaction:null});
-  S.screen='trust'; render();
-}
-
-/* ---- תסמוך עליי ---- */
-async function renderTrust(){
-  $app.innerHTML=`
-   <div class="top"><span class="pill">תסמוך עליי</span><button class="back" onclick="S.screen='home';render()">→ חזרה</button></div>
-   ${S.context?`<div class="sub">עכשיו: ${esc(S.context)}</div>`:''}
-   <div class="res"><div class="name" style="font-size:20px">רגע, חושב…</div><div class="track shim" style="width:60%;margin-top:10px"></div></div>`;
-  let r=null;
-  try{ const c=nowCtx(); r=await api('trust',{u:UK,hour:String(c.local_hour),weekday:String(c.weekday),context:S.context||''}); }catch(e){}
-  if(S.screen!=='trust') return;
-  if(!r){ $app.querySelector('.res').innerHTML=`<div class="name" style="font-size:20px">אין לי חיבור לזיכרון כרגע.</div><button class="btn primary" onclick="startListen()">🎧 בואי נקשיב בינתיים</button>`; return; }
-  moment({action:'trust', layer:'ask', cell:r.cell||null, reaction:null, meta:{status:r.status}});
-  if(!r.cell){
-    $app.querySelector('.res').innerHTML=`<div class="k">ביושר</div><div class="desc" style="font-size:17px;line-height:1.6">${esc(r.message)}</div>
-      <button class="btn primary" onclick="startListen()">🎧 בואי נקשיב ביחד</button>`;
-    return;
-  }
-  const [ti,te,mo,vo]=r.cell.split('/'); const leafC=(R[ti]&&R[ti][te]&&R[ti][te][mo]&&R[ti][te][mo][vo])||null;
-  let track=null;
-  try{ track = r.track&&r.track.id ? await api('track',{id:String(r.track.id)}) : null; }catch(e){}
-  if(!track && leafC){ try{ track=await api('pick',{s:leafC[4]}); }catch(e){} }
-  if(S.screen!=='trust') return;
-  const name=leafC?leafC[0]:r.cell;
-  $app.querySelector('.res').outerHTML=`
-    <div class="res">
-      <div class="k">${r.status==='confident'?'מביא':'ניחוש – ואני אומר שזה ניחוש'}</div>
-      <div class="name">${esc(name)}</div>
-      <div class="desc">${esc(r.message)}</div>
-      ${track?`<div class="tr" id="tr-trust" onclick="playTrust()" style="border:0;margin-top:8px"><div class="cv">${track.cover?`<img src="${esc(track.cover)}" alt="" onerror="this.remove()">`:''}<span>▶</span></div><div class="t"><b>${esc(track.title)}</b><span>${esc(track.artist)}</span></div></div>
-      <div class="links"><a href="${ytUrl(track)}" target="_blank" rel="noopener" onclick="openYT(window.__trustTrack,'${r.cell}')">▶ פתחי ביוטיוב</a></div>`:''}
-      <div class="links"><a href="#" onclick="event.preventDefault();trustFeedback('${r.cell}','yes')" style="background:var(--ok);color:#0a0a14;font-weight:700">פגעת ✓</a><a href="#" onclick="event.preventDefault();trustFeedback('${r.cell}','no')">לא זה ✗</a></div>
-    </div>`;
-  window.__trustTrack=track; window.__trustCell=r.cell;
-}
-function playTrust(){ const t=window.__trustTrack; if(!t||!t.preview) return; if(curKey==='tr-trust'){ stopAll(); return; } stopAll(); document.getElementById('tr-trust').classList.add('playing'); playUrl(t.preview,'tr-trust',null); }
-function trustFeedback(cell,ans){
-  const t=window.__trustTrack||{}; const [ti,te,mo,vo]=cell.split('/'); const leafC=R[ti][te][mo][vo];
-  moment({action:'trust', layer:'voice', cell, track_id:t.id||null, track_title:t.title||null, track_artist:t.artist||null, reaction:ans, meta:{cell_name:leafC[0]}});
-  if(ans==='yes'){ alertish('רשמתי לי 🙏'); setTimeout(()=>{ S.screen='home'; ME=null; render(); },900); }
-  else { alertish('בסדר, בואי נקשיב'); setTimeout(startListen,700); }
-}
-
-function renderLayer(){
-  const L=LAYERS[S.layer];
-  S.tracks={}; S.played={};
-  $app.innerHTML=`
-   <div class="top"><span class="pill">רובד ${S.layer+1} מתוך ${LAYERS.length}${S.context?` · ${esc(S.context)}`:''}</span>${S.layer>0?`<button class="back" onclick="goBack()">→ רובד קודם</button>`:`<button class="back" onclick="S.screen='home';render()">→ חזרה</button>`}</div>
-   <div class="dots">${LAYERS.map((_,i)=>`<i class="${i<=S.layer?'on':''}"></i>`).join('')}</div>
-   <div class="q">${L.q}</div><div class="sub">${L.sub}</div>
-   <div class="opts">${L.opts.map(o=>`
-     <div class="opt loading" id="opt-${o.v}" onclick="tap('${o.v}')">
-       ${S.group?`<span class="votes">${S.votes[o.v]||0}</span>`:''}
-       <div class="row">
-         <div class="play" id="play-${o.v}"><span class="tri">▶</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>
-         <div style="min-width:0;flex:1"><div class="name">${o.icon} ${o.name}</div><div class="desc">${o.desc}</div><div class="track shim" id="trk-${o.v}"></div></div>
-       </div>
-       <button class="choose" onclick="event.stopPropagation();choose('${o.v}')">${S.group?'+ זה נעים לי':'זה נעים לי ✓'}</button>
-       <div class="bar" id="bar-${o.v}"></div>
-     </div>`).join('')}
-   </div>
-   ${S.group?`<button class="btn ghost" onclick="closeRound()">סוגרים סבב ←</button>`:''}
-   <div class="tiny">אפשר לעבור בין הכרטיסים כמה שרוצים לפני שבוחרים</div>`;
-  const layerAtRender=S.layer;
-  L.opts.forEach(async o=>{
-    try{
-      const t=await resolveCell(cellFor(o.v));
-      if(S.screen!=='layer'||S.layer!==layerAtRender) return;
-      const el=document.getElementById('opt-'+o.v), tk=document.getElementById('trk-'+o.v);
-      if(!el) return;
-      if(t && t.preview){
-        S.tracks[o.v]=t; el.classList.remove('loading');
-        tk.classList.remove('shim'); tk.textContent=`${t.artist} · ${t.title}`;
-        if(t.cover){ const img=document.createElement('img'); img.src=t.cover; img.alt=''; img.onerror=()=>img.remove(); document.getElementById('play-'+o.v).prepend(img); }
-      } else { tk.classList.remove('shim'); tk.textContent='לא נמצא קטע – נסי כרטיס אחר'; el.classList.remove('loading'); }
-    }catch(e){
-      const tk=document.getElementById('trk-'+o.v), el=document.getElementById('opt-'+o.v);
-      if(tk){ tk.classList.remove('shim'); tk.textContent='אין חיבור לרגע'; }
-      if(el) el.classList.remove('loading');
+/* mix = {groove,bpm,mood,palette:[],texture,vocal} */
+function playMix(mix) {
+  ensureCtx(); stopAll();
+  const bus = ctx.createGain(); bus.gain.value = 0.9; bus.connect(master);
+  const bpm = mix.bpm || 110, d = 60 / bpm / 4, H = HARM[mix.mood || 'dark'];
+  let step = 0, next = ctx.currentTime + 0.06;
+  const p = { bus, timer: null, mix };
+  p.timer = setInterval(() => {
+    while (next < ctx.currentTime + 0.2) {
+      const s = step % 16, bar = Math.floor(step / 16) % 4, c = H.ch[bar];
+      if (mix.groove) GROOVES[mix.groove](s, next, bus, d);
+      (mix.palette || []).forEach(n => INSTR[n] && INSTR[n](s, next, c, H.sc, bus, d, bar, mix.groove));
+      if (mix.texture && TEX[mix.texture]) TEX[mix.texture](s, next, bus, d);
+      if (mix.vocal && mix.vocal !== 'none') vocal(mix.vocal, s, next, c, H.sc, bus, d, bar);
+      next += d; step++;
     }
+  }, 25);
+  player = p; return p;
+}
+window.__level = () => { if (!analyser) return 0; const a = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(a); let s = 0; for (const x of a) s += x * x; return Math.sqrt(s / a.length); };
+
+/* ===================== API & MEMORY ===================== */
+const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? location.origin : 'https://vofpzkcvncbvmnxrmhyc.supabase.co/functions/v1/tadar';
+const api = (p, params) => { const u = new URL(API_BASE + '/api/' + p); Object.entries(params || {}).forEach(([k, v]) => u.searchParams.set(k, typeof v === 'string' ? v : JSON.stringify(v))); return fetch(u).then(r => { if (!r.ok) throw new Error('api ' + r.status); return r.json(); }); };
+const post = (p, body) => fetch(API_BASE + '/api/' + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.ok ? r.json() : null).catch(() => null);
+function userKey() { try { let k = localStorage.getItem('tadar_user'); if (!k) { k = Array.from(crypto.getRandomValues(new Uint8Array(12)), b => 'abcdefghijklmnopqrstuvwxyz0123456789'[b % 36]).join(''); localStorage.setItem('tadar_user', k); } return k; } catch (e) { return window.__k || (window.__k = 'tmp' + Math.random().toString(36).slice(2, 14)); } }
+const UK = userKey();
+const nowCtx = () => { const d = new Date(); return { local_hour: d.getHours(), weekday: d.getDay(), tz: Intl.DateTimeFormat().resolvedOptions().timeZone || null }; };
+let ME = null;
+const loadMe = () => api('me', { u: UK }).then(r => (ME = r)).catch(() => (ME = { yes: 0, notes: [] }));
+const moment = m => post('moment', Object.assign({ user_key: UK, context: S.context || null }, nowCtx(), m)).then(r => { if (r && r.yes != null) ME = r; return r; });
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const enc = encodeURIComponent;
+const ytSearch = q => `https://www.youtube.com/results?search_query=${enc(q)}`;
+
+/* ===================== ENGINE OF CHOICES ===================== */
+const median = a => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+const majority = a => { const m = {}; a.forEach(x => m[x] = (m[x] || 0) + 1); return Object.entries(m).sort((x, y) => y[1] - x[1])[0]?.[0]; };
+const MULTI = { palette: 1, palette2: 1, texture: 1 };
+
+function valuesOf(dim, ids) {
+  const cnt = {};
+  ids.forEach(id => {
+    const s = STYLE[id];
+    const vals = dim === 'groove' ? [s.groove] : dim === 'mood' ? [s.mood] : dim === 'vocal' ? [s.vocal] : dim === 'tempo' ? [tempoBand(s.bpm)]
+      : dim === 'texture' ? s.texture : dim === 'palette' ? s.palette : s.palette.filter(p => !S.mix.palette.includes(p));
+    new Set(vals).forEach(v => cnt[v] = (cnt[v] || 0) + 1);
   });
+  return Object.entries(cnt).sort((a, b) => b[1] - a[1]);
 }
-function tap(v){
-  const t=S.tracks[v]; if(!t) return;
-  if(curKey===v){ stopAll(); return; }
-  stopAll(); S.played[v]=true;
-  document.getElementById('opt-'+v).classList.add('playing');
-  const bar=document.getElementById('bar-'+v);
-  playUrl(t.preview, v, ct=>{ if(bar) bar.style.width=Math.min(100,Math.max(0,(ct-SEG_START)/SEG_LEN*100))+'%'; });
+function matches(dim, val, s) {
+  if (dim === 'groove') return s.groove === val; if (dim === 'mood') return s.mood === val; if (dim === 'vocal') return s.vocal === val;
+  if (dim === 'tempo') return tempoBand(s.bpm) === val; if (dim === 'texture') return s.texture.includes(val);
+  if (dim === 'palette2' && val === '_enough') return true; return s.palette.includes(val);
 }
-function choose(v){
-  if(S.group){ S.votes[v]=(S.votes[v]||0)+1; document.querySelector('#opt-'+v+' .votes').textContent=S.votes[v]; return; }
-  advance(v);
+function score(dim, ids) {
+  const v = valuesOf(dim, ids); if (v.length < 2) return 0;
+  const tot = v.reduce((a, [, n]) => a + n, 0); let h = 0; v.forEach(([, n]) => { const p = n / tot; h -= p * Math.log2(p); });
+  if (MULTI[dim] && v.every(([, n]) => n === ids.length)) return 0;
+  return h * (dim === 'palette' ? 1.6 : dim === 'texture' ? 1.15 : dim === 'palette2' ? 0.5 : dim === 'mood' ? 1.2 : 1);
 }
-function closeRound(){
-  const L=LAYERS[S.layer]; let best=null,bn=-1;
-  L.opts.forEach(o=>{ const n=S.votes[o.v]||0; if(n>bn){bn=n;best=o.v;} });
-  if(bn<=0){ alertish('עוד אף אחד לא הצביע'); return; }
-  advance(best);
+/* ביט קודם. צלילים ומרקם הם שכבות שתמיד בונים, בסדר שמשתנה לפי מה שנשאר פתוח.
+   צבע / מהירות / עוד צליל נכנסים רק כשהם באמת מפצלים. מילים – אחרונות. עד 5 סבבים. */
+const CORE = ['palette', 'texture'], OPTIONAL = ['mood', 'tempo', 'palette2'];
+function nextDim() {
+  const a = S.asked;
+  if (!a.includes('groove')) return 'groove';
+  const coreLeft = CORE.filter(d => !a.includes(d));
+  const needed = coreLeft.length + (a.includes('vocal') ? 0 : 1), left = 5 - a.length;
+  const elig = coreLeft.map(d => [d, score(d, S.cands) + 0.01]);
+  OPTIONAL.forEach(d => { if (a.includes(d) || (d === 'palette2' && !a.includes('palette'))) return; const sc = score(d, S.cands); if (sc > 0 && left > needed) elig.push([d, sc]); });
+  if (elig.length) return elig.sort((x, y) => y[1] - x[1])[0][0];
+  return a.includes('vocal') ? null : 'vocal';
 }
-function advance(v){
-  const L=LAYERS[S.layer].id;
-  // זיכרון: "זה" על הכרטיס שנבחר, "לא זה" על כרטיסים ששמעה ולא בחרה
-  LAYERS[S.layer].opts.forEach(o=>{
-    if(o.v!==v && !S.played[o.v]) return;
-    const c=cellFor(o.v), t=S.tracks[o.v]||{}, lf=leaf(c);
-    moment({action:'listen', layer:L, cell:[c.timbre,c.tempo,c.mood,c.voice].join('/'), track_id:t.id||null, track_title:t.title||null, track_artist:t.artist||null, reaction:o.v===v?'yes':'no', meta:{cell_name:lf[0], card:o.v}});
-  });
-  S.played={};
-  S.picks[LAYERS[S.layer].id]=v; S.votes={};
-  if(S.layer<LAYERS.length-1){ S.layer++; S.screen='layer'; } else { S.screen='result'; }
+/* כשנשארה דרך אחת בלבד, השכבה עדיין נבנית: מציעים גם אפשרויות "קישוט" שלא סוגרות עולמות */
+const DECOR = { texture: ['none', 'birds', 'rain', 'ocean', 'vinyl'], vocal: ['none', 'sing', 'rap'], palette: ['pad', 'piano', 'synth', 'guitar', 'strings'], palette2: ['pad', 'bell', 'strings', 'piano'] };
+function optionsFor(dim) {
+  const vals = valuesOf(dim, S.cands);
+  const want = dim === 'vocal' ? 2 : 3;
+  if (vals.length < want && DECOR[dim]) {
+    const have = new Set(vals.map(v => v[0]).concat(dim === 'palette2' ? S.mix.palette : []));
+    for (const d of DECOR[dim]) { if (vals.length >= want) break; if (!have.has(d)) { vals.push([d, 0]); have.add(d); } }
+  }
+  if (dim === 'palette2') vals.push(['_enough', S.cands.length]);
+  return vals;
+}
+function mixWith(dim, val, ids) {
+  const m = JSON.parse(JSON.stringify(S.mix));
+  const sub = ids.filter(id => matches(dim, val, STYLE[id]));
+  if (dim === 'groove') { m.groove = val; m.bpm = median(sub.map(id => STYLE[id].bpm)); m.palette = []; }
+  else if (dim === 'palette' || dim === 'palette2') { if (val !== '_enough') m.palette = [...m.palette, val]; }
+  else if (dim === 'texture') m.texture = val;
+  else if (dim === 'mood') m.mood = val;
+  else if (dim === 'tempo') m.bpm = median(sub.map(id => STYLE[id].bpm));
+  else if (dim === 'vocal') m.vocal = val;
+  if (!S.asked.includes('mood') && dim !== 'mood' && sub.length) m.mood = majority(sub.map(id => STYLE[id].mood));
+  /* הביט מתקרב לעולם שנשאר: אם עוד לא בחרה מהירות, הטמפו זז למה שמתאים למה שנשאר פתוח */
+  if (!S.asked.includes('tempo') && dim !== 'tempo' && dim !== 'groove' && sub.length) m.bpm = median(sub.map(id => STYLE[id].bpm));
+  return m;
+}
+
+/* ===================== STATE ===================== */
+let S;
+function freshState(keep = {}) {
+  return { screen: 'build', mix: { groove: null, bpm: 110, mood: 'dark', palette: [], texture: 'none', vocal: 'none' }, cands: STYLES.map(s => s.id),
+    asked: [], picks: [], dim: 'groove', offset: 0, played: {}, hist: [], result: null, guide: null, context: keep.context || null };
+}
+S = freshState();
+const $app = document.getElementById('app');
+let nowKey = null;
+function stop() { stopAll(); nowKey = null; document.querySelectorAll('.playing').forEach(e => e.classList.remove('playing')); }
+function render() { stop(); if (S.screen === 'build') renderBuild(); else if (S.screen === 'result') renderResult(); else if (S.screen === 'trust') renderTrust(); window.scrollTo(0, 0); }
+
+/* ===================== BUILD ===================== */
+function stackChips() {
+  const out = [];
+  if (S.mix.groove) out.push(LABELS.groove[S.mix.groove].n);
+  S.mix.palette.forEach(p => out.push(LABELS.palette[p].n));
+  if (S.asked.includes('texture')) out.push(LABELS.texture[S.mix.texture].n);
+  if (S.asked.includes('mood')) out.push(LABELS.mood[S.mix.mood].n);
+  if (S.asked.includes('tempo')) out.push(LABELS.tempo[tempoBand(S.mix.bpm)].n);
+  if (S.asked.includes('vocal')) out.push(LABELS.vocal[S.mix.vocal].n);
+  return out;
+}
+function greeting() {
+  if (!ME) return '';
+  if (!ME.yes) return 'עוד לא מכיר אותך. אז לא אנחש – נתחיל מהביט, ונבנה משם ביחד.';
+  return `בנינו ביחד ${ME.yes === 1 ? 'פעם אחת' : ME.yes + ' פעמים'}. אני מתחיל להכיר אותך.`;
+}
+function renderBuild() {
+  const dim = S.dim, D = DIMS[dim], vals = optionsFor(dim);
+  const shown = vals.slice(S.offset, S.offset + 4), more = vals.length > 4;
+  const chips = stackChips(), first = !S.asked.length;
+  const notes = (ME && ME.notes) || [];
+  $app.innerHTML = `
+    <div class="top">
+      ${S.hist.length ? `<button class="back" onclick="goBack()">→ אחורה</button>` : `<span></span>`}
+      <button class="chip" onclick="S.screen='trust';render()">🤝 תסמוך עליי</button>
+    </div>
+    ${first ? `<div class="hello">${esc(greeting())}</div>${notes.length ? `<div class="noted">שמתי לב: ${esc(notes[0].note)}</div>` : ''}` : ''}
+    ${chips.length ? `<button class="stack" id="stack" onclick="toggleStack()"><span class="eqs"><i></i><i></i><i></i></span> ${chips.map(esc).join(' · ')}</button>` : ''}
+    <div class="q">${D.q}</div><div class="sub">${D.sub}</div>
+    ${S.guide ? `<div class="guide">${S.guide}</div>` : ''}
+    <div class="opts">${shown.map(([v]) => {
+      const L = v === '_enough' ? { n: 'מספיק ככה', d: 'לא להוסיף' } : LABELS[dim === 'palette2' ? 'palette' : dim][v];
+      return `<div class="opt" id="o-${v}" onclick="tap('${v}')">
+        <div class="row"><div class="play"><span class="tri">▶</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>
+        <div><div class="name">${L.n}</div><div class="desc">${L.d}</div></div></div>
+        <button class="choose" onclick="event.stopPropagation();choose('${v}')">זה ✓</button></div>`; }).join('')}
+    </div>
+    ${more ? `<button class="btn ghost" onclick="S.offset=(S.offset+4)%${vals.length};renderBuild()">אחרים ↻</button>` : ''}
+    <div class="tiny">${S.cands.length > 3 ? `עוד ${S.cands.length} עולמות פתוחים` : 'כמעט שם'}</div>`;
+  S.guide = null;
+}
+function tap(v) {
+  ensureCtx();
+  if (nowKey === v) { stop(); return; }
+  stop(); nowKey = v; S.played[v] = 1;
+  document.getElementById('o-' + v).classList.add('playing');
+  playMix(mixWith(S.dim, v, S.cands));
+}
+function toggleStack() { ensureCtx(); if (nowKey === '_stack') { stop(); return; } stop(); nowKey = '_stack'; document.getElementById('stack').classList.add('playing'); playMix(S.mix); }
+function choose(v) {
+  const dim = S.dim;
+  Object.keys(S.played).forEach(k => moment({ action: 'listen', layer: dim, reaction: k === v ? 'yes' : 'no', meta: { dim, val: k } }));
+  if (!S.played[v]) moment({ action: 'listen', layer: dim, reaction: 'yes', meta: { dim, val: v } });
+  S.hist.push(JSON.stringify({ mix: S.mix, cands: S.cands, asked: S.asked, picks: S.picks, dim: S.dim }));
+  S.mix = mixWith(dim, v, S.cands);
+  const f = S.cands.filter(id => matches(dim, v, STYLE[id]));
+  if (f.length) S.cands = f;
+  S.asked = [...S.asked, dim]; S.picks = [...S.picks, [dim, v]];
+  advance();
+}
+function advance() {
+  S.played = {}; S.offset = 0;
+  const nd = nextDim();
+  if (!nd) return finish();
+  S.dim = nd; render();
+  if (nowKey === null && S.mix.groove) { /* keep building audible */ }
+}
+function goBack() { const h = S.hist.pop(); if (!h) return; Object.assign(S, JSON.parse(h)); S.screen = 'build'; S.played = {}; S.offset = 0; render(); }
+
+/* ===================== WORDS & VOICE ===================== */
+const RX = {
+  noDrums: /בלי תופים|בלי ביט|בלי קצב/, faster: /מהר|אנרגי|לקפוץ|לרקוד|ריקוד|להתפרק|לזוז/, slower: /לאט|רגוע|להירגע|איטי|לנוח|שקט|לישון|שינה|מדיטציה/,
+  dark: /עצוב|עמוק|אפל|חושך|מלנכול|לבכות|בוכה|כבד/, bright: /שמח|בהיר|קליל|מרים|אופטימי|אור/, east: /מזרח|ערבי|ים.?תיכונ|סלסול/,
+  noWords: /בלי מילים|בלי קול|אינסטרומנט|בלי שירה/, rap: /ראפ|היפ ?הופ/, words: /מילים|לשיר|שירה|קול|זמר/,
+};
+const TEX_RX = [[/ציפור/, 'birds'], [/גשם/, 'rain'], [/\bים\b|גלים|חוף/, 'ocean'], [/תקליט|ויניל/, 'vinyl'], [/כפיים/, 'clap']];
+const PAL_RX = [[/גיטרה חשמלית|דיסטורשן/, 'egtr'], [/גיטרה/, 'guitar'], [/פסנתר חשמלי|רודס/, 'rhodes'], [/פסנתר/, 'piano'], [/כינור|קשת|תזמורת/, 'strings'], [/סינת/, 'synth'], [/בס/, 'sub'], [/פעמונ/, 'bell'], [/ענן|רך ופתוח/, 'pad']];
+function handleText(raw) {
+  const txt = (raw || '').trim(); if (!txt) return;
+  const t = txt.toLowerCase();
+  const said = [];
+  /* 1. ביקשה סגנון בשמו */
+  const hits = []; STYLES.forEach(s => [...s.al, s.he].forEach(a => { const al = a.toLowerCase(); const i = t.indexOf(al); if (i >= 0 && !/[א-תa-z]/.test(t[i + al.length] || ' ')) hits.push([s, al.length]); }));
+  const named = hits.sort((a, b) => b[1] - a[1]).map(h => h[0]);
+  if (named.length) { const s = named[0]; S.guide = null; showStyle(s.id, `אה, ${s.he}. הנה איך זה בנוי – שכבה על שכבה:`); return; }
+  /* 2. כיוונים */
+  const before = S.cands.slice(); let c = S.cands.slice();
+  const tryF = (fn, label, onOk) => { const n = c.filter(id => fn(STYLE[id])); if (n.length) { c = n; said.push(label); onOk && onOk(n); } else said.push(`(${label} – אין לי עדיין דבר כזה בדרך הזאת)`); };
+  const mark = d => { if (!S.asked.includes(d)) S.asked = [...S.asked, d]; };
+  if (RX.noDrums.test(t)) tryF(s => s.groove === 'pulse', 'בלי תופים', () => { S.mix.groove = 'pulse'; mark('groove'); });
+  else if (RX.faster.test(t)) tryF(s => s.bpm > (S.mix.groove ? S.mix.bpm : 110), 'יותר מהר', n => { S.mix.bpm = median(n.map(id => STYLE[id].bpm)); mark('tempo'); });
+  else if (RX.slower.test(t)) tryF(s => s.bpm < (S.mix.groove ? S.mix.bpm : 110), 'יותר לאט', n => { S.mix.bpm = median(n.map(id => STYLE[id].bpm)); mark('tempo'); });
+  if (RX.east.test(t)) tryF(s => s.mood === 'east', 'מזרחי', () => { S.mix.mood = 'east'; mark('mood'); });
+  else if (RX.dark.test(t)) tryF(s => s.mood === 'dark', 'עמוק', () => { S.mix.mood = 'dark'; mark('mood'); });
+  else if (RX.bright.test(t)) tryF(s => s.mood === 'bright', 'בהיר', () => { S.mix.mood = 'bright'; mark('mood'); });
+  if (RX.noWords.test(t)) tryF(s => s.vocal === 'none', 'בלי מילים', () => { S.mix.vocal = 'none'; mark('vocal'); });
+  else if (RX.rap.test(t)) tryF(s => s.vocal === 'rap', 'ראפ', () => { S.mix.vocal = 'rap'; mark('vocal'); });
+  else if (RX.words.test(t)) tryF(s => s.vocal !== 'none', 'עם קול', n => { S.mix.vocal = majority(n.map(id => STYLE[id].vocal)); mark('vocal'); });
+  TEX_RX.forEach(([rx, v]) => { if (rx.test(t)) tryF(s => s.texture.includes(v), LABELS.texture[v].n, () => { S.mix.texture = v; mark('texture'); }); });
+  PAL_RX.some(([rx, v]) => { if (rx.test(t)) { tryF(s => s.palette.includes(v), LABELS.palette[v].n, () => { if (!S.mix.palette.includes(v)) S.mix.palette = [...S.mix.palette, v]; mark('palette'); }); return true; } });
+  if (said.length) {
+    S.hist.push(JSON.stringify({ mix: S.mix, cands: before, asked: S.asked, picks: S.picks, dim: S.dim }));
+    S.cands = c; if (!S.mix.groove) { S.mix.groove = majority(c.map(id => STYLE[id].groove)); S.mix.bpm = median(c.map(id => STYLE[id].bpm)); mark('groove'); }
+    moment({ action: 'talk', layer: S.dim, reaction: null, meta: { text: txt, applied: said } });
+    S.guide = `שמעתי: ${said.map(esc).join(' · ')}. ${c.length > 1 ? 'ממשיכים משם.' : ''}`;
+    S.played = {}; S.offset = 0;
+    const nd = nextDim(); if (!nd) return finish(); S.dim = nd; render(); return;
+  }
+  /* 3. סיפרה מה קורה איתה */
+  S.context = txt;
+  moment({ action: 'talk', layer: S.dim, reaction: null, meta: { text: txt } });
+  S.guide = `רשמתי שאת "${esc(txt)}". אזכור מה עבד לך ברגע כזה. בואי נמשיך להקשיב.`;
+  if (S.screen === 'build') renderBuild(); else render();
+}
+function sendText() { const i = document.getElementById('say'); const v = i.value; i.value = ''; i.blur(); handleText(v); }
+let rec = null;
+function micSupported() { return !!(window.SpeechRecognition || window.webkitSpeechRecognition); }
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return;
+  const b = document.getElementById('mic');
+  if (rec) { rec.stop(); return; }
+  rec = new SR(); rec.lang = 'he-IL'; rec.interimResults = true; rec.maxAlternatives = 1;
+  const i = document.getElementById('say'); b.classList.add('on'); i.placeholder = 'מקשיב…';
+  rec.onresult = e => { i.value = Array.from(e.results).map(r => r[0].transcript).join(''); };
+  rec.onend = () => { b.classList.remove('on'); i.placeholder = 'תכתבי או תגידי לי…'; rec = null; if (i.value.trim()) sendText(); };
+  rec.onerror = () => { b.classList.remove('on'); rec = null; };
+  try { rec.start(); } catch (e) { rec = null; b.classList.remove('on'); }
+}
+
+/* ===================== RESULT – המדריך ===================== */
+function similarity(a, b) {
+  let s = 0; if (a.groove === b.groove) s += 3; s += Math.max(0, 2 - Math.abs(a.bpm - b.bpm) / 20); if (a.mood === b.mood) s += 2; if (a.vocal === b.vocal) s += 1;
+  const pa = new Set(a.palette); s += 2 * b.palette.filter(p => pa.has(p)).length / Math.max(a.palette.length, b.palette.length);
+  if (a.texture.some(x => b.texture.includes(x) && x !== 'none')) s += 1; return s;
+}
+const neighbors = id => (S.alts && S.alts.length ? S.alts.map(a => STYLE[a]).concat(STYLES.filter(s => s.id !== id && !S.alts.includes(s.id)).map(s => [s, similarity(STYLE[id], s)]).sort((a, b) => b[1] - a[1]).map(x => x[0])).slice(0, 3) : null) || STYLES.filter(s => s.id !== id).map(s => [s, similarity(STYLE[id], s)]).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0]);
+/* כשנשארו כמה עולמות – בוחרים את מה שהכי קרוב למה שנבנה בפועל */
+function fit(s, m) {
+  let f = 0; if (s.groove === m.groove) f += 3; f -= Math.abs(s.bpm - m.bpm) / 15; if (s.mood === m.mood) f += 1.5; if (s.vocal === m.vocal) f += 1;
+  f += m.palette.filter(p => s.palette.includes(p)).length * 1.2; if (s.texture.includes(m.texture)) f += 0.8;
+  f -= Math.max(0, s.palette.length - m.palette.length) * 0.3; return f;
+}
+function finish() {
+  const ranked = S.cands.map(id => [id, fit(STYLE[id], S.mix)]).sort((a, b) => b[1] - a[1]);
+  const pick = ranked.length ? ranked[0][0] : STYLES[0].id; S.result = pick; S.screen = 'result';
+  S.alts = ranked.slice(1, 4).map(r => r[0]);
+  moment({ action: 'listen', layer: 'final', cell: pick, reaction: 'yes', meta: { cell_name: STYLE[pick].he, picks: S.picks } });
   render();
 }
-function goBack(){ S.layer--; S.votes={}; render(); }
-function alertish(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1800); }
-
-/* ===================== RESULT ===================== */
-let PL=null;
-function renderResult(){
-  const p=S.picks, cell=R[p.timbre][p.tempo][p.mood], main=cell[p.voice], alt=cell[p.voice==='yes'?'no':'yes'];
-  $app.innerHTML=`
-    <div class="top"><span class="pill">${S.group?'התדר של החבורה':'התדר שלך'} · עכשיו</span><button class="back" onclick="S.screen='layer';S.layer=3;render()">→ לשנות</button></div>
-    <h1 style="margin-bottom:14px">${S.group?'זה מה שמחבר אתכם':'זה מה שמתאים לך עכשיו'}</h1>
+function showStyle(id, intro) {
+  const s = STYLE[id];
+  S.hist.push(JSON.stringify({ mix: S.mix, cands: S.cands, asked: S.asked, picks: S.picks, dim: S.dim }));
+  S.mix = { groove: s.groove, bpm: s.bpm, mood: s.mood, palette: s.palette.slice(0, 2), texture: s.texture[0], vocal: s.vocal };
+  S.cands = [id]; S.alts = []; S.asked = ['groove', 'palette', 'texture', 'mood', 'vocal']; S.result = id; S.screen = 'result'; S.intro = intro || null;
+  moment({ action: 'listen', layer: 'final', cell: id, reaction: 'yes', meta: { cell_name: s.he, via: 'named' } });
+  render();
+}
+let PL = null;
+function renderResult() {
+  const s = STYLE[S.result], nb = neighbors(s.id), chips = stackChips();
+  $app.innerHTML = `
+    <div class="top"><button class="back" onclick="goBack()">→ לשנות</button><button class="chip" onclick="S=freshState(S);render()">↺ לבנות מחדש</button></div>
+    ${S.intro ? `<div class="guide">${esc(S.intro)}</div>` : ''}
     <div class="res">
-      <div class="k">ההתאמה הכי קרובה</div>
-      <div class="name">${main[0]}</div>
-      <div class="desc">${main[1]}</div>
-      <div class="links" id="mainlinks"><a href="${yt(main[0])}" target="_blank" rel="noopener" style="background:rgba(255,255,255,.14);font-weight:700">▶ מיקס ביוטיוב</a><a href="${sp(main[0])}" target="_blank" rel="noopener">● ספוטיפיי</a></div>
+      <div class="k">מה שבנית עכשיו קוראים לו</div>
+      <div class="name">${s.he}</div><div class="en">${s.en}</div>
+      <button class="stack big" id="stack" onclick="toggleStack()"><span class="eqs"><i></i><i></i><i></i></span> ${chips.map(esc).join(' · ')}</button>
+      <div class="tell"><b>שימי לב:</b> ${s.tell}</div>
     </div>
-    <div class="pl" id="pl"><h2>10 שירים להתחיל מהם</h2><div class="track shim" style="width:70%"></div></div>
-    <div class="alt">
-      <div class="k">${p.voice==='yes'?'ואם בא לך רגע בלי מילים':'ואם בכל זאת בא לך קול'}</div>
-      <div class="name">${alt[0]}</div>
-      <div class="desc">${alt[1]} · ${alt[2]}</div>
-    </div>
-    <div class="why"><h2>למה דווקא זה</h2><ul>
-      <li>${WHY.timbre[p.timbre]}</li><li>${WHY.tempo[p.tempo]}</li><li>${WHY.mood[p.mood]}</li><li>${WHY.voice[p.voice]}</li>
-    </ul></div>
-    <button class="btn primary" onclick="copyRes()">📋 להעתיק</button>
-    <button class="btn ghost" onclick="S.screen='home';ME=null;render()">→ חזרה לחבר</button>
-    <div class="tiny">מחר זה יכול להיות משהו אחר לגמרי. זה בסדר – ככה זה אמור לעבוד.</div>`;
-  S._copy=`התדר שלי עכשיו 〰️\n${main[0]} – ${main[1]}\nלדוגמה: ${main[2]}\n\nאו: ${alt[0]} (${alt[2]})`;
-  loadPlaylist(main);
+    ${S.alts && S.alts.length ? `<div class="guide">היה צמוד בינו לבין <b>${STYLE[S.alts[0]].he}</b> – מה שבנית יושב בדיוק על הגבול. <a href="#" onclick="event.preventDefault();showStyle('${S.alts[0]}')" style="color:var(--ok)">לשמוע גם אותו ←</a></div>` : ''}
+    <div class="pl" id="pl"><h2>ככה זה נשמע באמת</h2><div class="shim"></div></div>
+    <div class="fb" id="fb"><button class="btn ok" onclick="feedback(true)">פגעת ✓</button><button class="btn ghost" onclick="feedback(false)">לא בדיוק</button></div>
+    <div class="alt"><div class="k">קרובים לזה – אם תרצי לזוז קצת</div>
+      <div class="nbs">${nb.map(n => `<button class="nb" onclick="showStyle('${n.id}')">${n.he}</button>`).join('')}</div></div>
+    <div class="tiny">מחר זה יכול להיות משהו אחר לגמרי. ככה זה אמור לעבוד.</div>`;
+  S.intro = null; loadPlaylist(s);
 }
-async function loadPlaylist(main){
-  const box=document.getElementById('pl'); PL=null;
-  try{
-    const r=await api('playlist',{q:main[3], s:main[4]});
-    if(!document.getElementById('pl')) return;
-    PL=r;
-    const tracks=(r.tracks||[]).slice(0,10);
-    if(!tracks.length) throw new Error('empty');
-    box.innerHTML=`<h2>10 שירים להתחיל מהם</h2>
-      ${tracks.map((t,i)=>`
-        <div class="tr" id="tr-${i}" onclick="playTr(${i})">
-          <div class="cv">${t.cover?`<img src="${esc(t.cover)}" alt="" onerror="this.remove()">`:''}<span>▶</span></div>
-          <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
-          <a href="${ytUrl(t)}" target="_blank" rel="noopener" onclick="event.stopPropagation();openYT(PL.tracks[${i}],'${S.picks.timbre}/${S.picks.tempo}/${S.picks.mood}/${S.picks.voice}')" title="לפתוח ביוטיוב" style="font-size:13px;font-weight:700;background:rgba(255,255,255,.08);border-radius:10px;padding:8px 10px">▶ יוטיוב</a>
-        </div>`).join('')}
-      ${r.playlist?`<div class="links"><a href="${esc(r.playlist.link)}" target="_blank" rel="noopener">הפלייליסט המלא בדיזר ↗</a></div>`:''}`;
-    S._copy += '\n\n' + tracks.map(t=>`• ${t.artist} – ${t.title}`).join('\n');
-  }catch(e){
-    if(box) box.innerHTML=`<h2>10 שירים להתחיל מהם</h2><div class="desc" style="color:var(--muted);font-size:14px">לא הצלחתי לטעון פלייליסט כרגע. לדוגמה: ${main[2]}</div>`;
+async function loadPlaylist(s) {
+  const box = document.getElementById('pl'); PL = null;
+  try {
+    const r = await api('playlist', { q: s.q, s: s.seeds }); if (!document.getElementById('pl') || S.result !== s.id) return;
+    PL = r; const tr = (r.tracks || []).slice(0, 8); if (!tr.length) throw 0;
+    box.innerHTML = `<h2>ככה זה נשמע באמת</h2>${tr.map((t, i) => `
+      <div class="tr" id="tr-${i}" onclick="playTr(${i})"><div class="cv">${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}<span>▶</span></div>
+      <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
+      <a class="yt" href="${ytSearch(t.artist + ' ' + t.title)}" target="_blank" rel="noopener" onclick="event.stopPropagation();openYT(${i})">▶ יוטיוב</a></div>`).join('')}
+      <a class="mix" href="${ytSearch(s.en + ' mix')}" target="_blank" rel="noopener">מיקס ${esc(s.he)} ביוטיוב ↗</a>`;
+  } catch (e) { if (box) box.innerHTML = `<h2>ככה זה נשמע באמת</h2><div class="desc">לא הצלחתי לטעון שירים כרגע.</div><a class="mix" href="${ytSearch(s.en + ' mix')}" target="_blank" rel="noopener">מיקס ${esc(s.he)} ביוטיוב ↗</a>`; }
+}
+let audioEl = null;
+function playTr(i) {
+  const t = PL && PL.tracks[i]; if (!t || !t.preview) return; const key = 'tr' + i;
+  if (nowKey === key) { stop(); audioEl && audioEl.pause(); return; }
+  stop(); audioEl && audioEl.pause(); nowKey = key; document.getElementById('tr-' + i).classList.add('playing');
+  if (!audioEl) audioEl = new Audio(); audioEl.src = t.preview; audioEl.currentTime = 0; const p = audioEl.play(); p && p.catch(() => {});
+  window.__nowPlaying = key;
+}
+const _stop = stop; stop = function () { _stop(); if (audioEl) audioEl.pause(); window.__nowPlaying = null; };
+function openYT(i) { const t = PL.tracks[i]; moment({ action: 'open', layer: 'final', cell: S.result, track_id: t.id, track_title: t.title, track_artist: t.artist, reaction: 'opened' }); }
+function feedback(ok) {
+  const fb = document.getElementById('fb');
+  if (ok) { fb.innerHTML = `<div class="guide">רשמתי לי. ככה אני לומד אותך – רגע אחרי רגע.</div>`; return; }
+  moment({ action: 'listen', layer: 'final', cell: S.result, reaction: 'no', meta: { cell_name: STYLE[S.result].he } });
+  fb.innerHTML = `<div class="guide">תודה שאמרת. תגידי לי במילים מה חסר, או תנסי את אחד הקרובים למטה.</div>`;
+  document.getElementById('say').focus();
+}
+
+/* ===================== TRUST ===================== */
+async function renderTrust() {
+  $app.innerHTML = `<div class="top"><button class="back" onclick="S.screen='build';render()">→ חזרה</button><span></span></div>
+    <div class="res"><div class="k">תסמוך עליי</div><div class="desc">רגע, חושב…</div></div>`;
+  let r = null; try { const c = nowCtx(); r = await api('trust', { u: UK, hour: String(c.local_hour), weekday: String(c.weekday), context: S.context || '' }); } catch (e) {}
+  if (S.screen !== 'trust') return;
+  const s = r && r.cell && STYLE[r.cell];
+  moment({ action: 'trust', layer: 'ask', cell: s ? s.id : null, reaction: null, meta: { status: r ? r.status : 'offline' } });
+  if (!s) {
+    const msg = !r ? 'אין לי חיבור לזיכרון כרגע.' : r.status === 'unknown' ? r.message : 'עוד לא בנינו מספיק ביחד בשביל שאדע. בואי נבנה.';
+    $app.querySelector('.res').innerHTML = `<div class="k">ביושר</div><div class="desc big">${esc(msg)}</div><button class="btn primary" onclick="S=freshState(S);render()">בואי נבנה ביחד</button>`;
+    return;
   }
+  $app.querySelector('.res').outerHTML = `<div class="res"><div class="k">${r.status === 'confident' ? 'מביא' : 'ניחוש – ואני אומר שזה ניחוש'}</div>
+    <div class="name">${s.he}</div><div class="desc">${esc(r.message)}</div>
+    <div class="fb"><button class="btn ok" onclick="trustFb('${s.id}',true)">פגעת ✓</button><button class="btn ghost" onclick="trustFb('${s.id}',false)">לא זה</button></div></div>
+    <div class="pl" id="pl"><h2>הנה</h2><div class="shim"></div></div>`;
+  S.result = s.id; S.mix = { groove: s.groove, bpm: s.bpm, mood: s.mood, palette: s.palette.slice(0, 2), texture: s.texture[0], vocal: s.vocal };
+  loadPlaylist(s);
 }
-function playTr(i){
-  const t=PL&&PL.tracks[i]; if(!t||!t.preview) return;
-  const key='tr-'+i;
-  if(curKey===key){ stopAll(); return; }
-  stopAll();
-  document.getElementById(key).classList.add('playing');
-  playUrl(t.preview,key,null);
+function trustFb(id, ok) {
+  moment({ action: 'trust', layer: 'final', cell: id, reaction: ok ? 'yes' : 'no', meta: { cell_name: STYLE[id].he } });
+  if (ok) { S.screen = 'result'; render(); } else { S = freshState(S); S.guide = 'בסדר. בואי נבנה מהביט, ואני אלמד.'; render(); }
 }
-function copyRes(){
-  const text=S._copy;
-  const ok=()=>alertish('הועתק');
-  try{ navigator.clipboard.writeText(text).then(ok).catch(()=>fb(text)); }catch(e){ fb(text); }
-  function fb(t){ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');ok();}catch(e){} document.body.removeChild(ta); }
-}
-window.__S=()=>S; window.__R=R; window.__UK=UK;
-loadMe().then(render); render();
+
+/* ===================== BOOT ===================== */
+document.getElementById('say').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+if (!micSupported()) document.getElementById('mic').style.display = 'none';
+window.__S = () => S;
+render(); loadMe().then(() => { if (S.screen === 'build' && !S.asked.length) renderBuild(); });
+
 </script>
 </body>
 </html>
