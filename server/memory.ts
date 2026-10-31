@@ -148,3 +148,31 @@ export async function tellNote(user_key: string, note: string) {
   if (!n) return;
   await sb.from("tadar_profile_notes").insert({ user_key, note: n, confidence: 0.9, source: "told" });
 }
+
+/* ---------- בשביל הסוכן ---------- */
+export async function recentMoments(user_key: string, n = 30) {
+  const { data } = await sb.from("tadar_moments")
+    .select("action,layer,cell,reaction,context,local_hour,weekday,meta,created_at")
+    .eq("user_key", user_key).order("created_at", { ascending: false }).limit(n);
+  return (data ?? []).map((r: any) => {
+    const m = r.meta ?? {};
+    const what = m.cell_name ?? m.label ?? m.text ?? r.cell ?? "";
+    const when = `${r.weekday != null ? "יום " + DAY_NAMES[r.weekday] : ""} ${SLOT_HE[slotOf(r.local_hour)]}`.trim();
+    return `${r.created_at.slice(0, 10)} ${when} · ${r.action}/${r.layer ?? "-"} · ${String(what).slice(0, 80)} · ${r.reaction ?? ""}${r.context ? " · הקשר: " + r.context : ""}`;
+  });
+}
+export async function agentNote(user_key: string, note: string) {
+  const n = note.trim().slice(0, 200); if (n.length < 6) return;
+  const { data: exists } = await sb.from("tadar_profile_notes").select("id").eq("user_key", user_key).eq("note", n).maybeSingle();
+  if (exists) return;
+  await sb.from("tadar_profile_notes").insert({ user_key, note: n, confidence: 0.7, source: "agent" });
+}
+/** שמירה מהוצאות: עד 80 שיחות ביום למשתמשת, 1500 בסך הכול */
+export async function agentBudgetOk(user_key: string) {
+  const since = new Date(Date.now() - 864e5).toISOString();
+  const [mine, all] = await Promise.all([
+    sb.from("tadar_moments").select("*", { count: "exact", head: true }).eq("user_key", user_key).eq("action", "talk").eq("meta->>agent", "1").gte("created_at", since),
+    sb.from("tadar_moments").select("*", { count: "exact", head: true }).eq("action", "talk").eq("meta->>agent", "1").gte("created_at", since),
+  ]);
+  return (mine.count ?? 0) < 80 && (all.count ?? 0) < 1500;
+}

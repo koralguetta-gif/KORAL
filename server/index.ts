@@ -4,6 +4,7 @@
 // GET  <fn>/api/playlist?q=<query>&s=[[a,t],...]  → playlist + up to 12 tracks with previews
 // GET  <fn>/api/health
 import { saveMoment, me, trust, tellNote, type Moment } from "./memory.ts";
+import { talk, agentReady } from "./agent.ts";
 
 const DZ = Deno.env.get("DEEZER_BASE") ?? "https://api.deezer.com";
 const TTL = 1000 * 60 * 60 * 12;
@@ -161,7 +162,7 @@ Deno.serve(async (req: Request) => {
   try {
     switch (m[1]) {
       case "health":
-        return json({ ok: true, cache: cache.size, deezer: DZ });
+        return json({ ok: true, cache: cache.size, deezer: DZ, agent: agentReady() }, 200, true);
       case "pick": {
         const seeds = parseSeeds(url.searchParams.get("s"));
         if (!seeds.length) return json({ error: "no seeds" }, 400);
@@ -198,6 +199,13 @@ Deno.serve(async (req: Request) => {
         if (!u || !body?.note) return json({ error: "bad note" }, 400);
         await tellNote(u, body.note);
         return json({ ok: true }, 200, true);
+      }
+      case "talk": {
+        if (req.method !== "POST") return json({ error: "POST" }, 405);
+        const body = await req.json().catch(() => null) as any;
+        const u = body && userKey(body.user_key);
+        if (!u || typeof body.text !== "string") return json({ error: "bad talk" }, 400);
+        return json(await talk({ ...body, user_key: u }), 200, true);
       }
       case "playlist": {
         const q = (url.searchParams.get("q") ?? "").slice(0, 80);

@@ -80,7 +80,7 @@ function optionsFor(dim) {
   return [];
 }
 function nextDim() {
-  if (!S.asked.includes('groove')) return 'groove';
+  if (!S.asked.includes('groove')) { if (optionsFor('groove').length >= 2) return 'groove'; S.asked = [...S.asked, 'groove']; }
   if (S.asked.length >= 5 || S.cands.length < 2) return null;
   const fam = STYLE[S.cands[0]].family;
   for (const d of FAMILIES[fam].order) if (!S.asked.includes(d) && optionsFor(d).length >= 2) return d;
@@ -96,7 +96,7 @@ const ROUND_TEXT = {
 
 /* ===================== STATE & SCREENS ===================== */
 let S;
-const freshState = (keep = {}) => ({ screen: 'build', dim: 'groove', cands: STYLES.map(s => s.id), asked: [], picks: [], mix: {}, opts: [], played: {}, hist: [], offset: 0, result: null, alts: [], guide: keep.guide || null, context: keep.context || null });
+const freshState = (keep = {}) => ({ screen: 'build', dim: 'groove', cands: STYLES.map(s => s.id), asked: [], picks: [], mix: {}, opts: [], played: {}, hist: [], offset: 0, result: null, alts: [], guide: keep.guide || null, context: keep.context || null, chat: keep.chat || [] });
 S = freshState();
 const $app = document.getElementById('app');
 function render() { stop(); if (S.screen === 'build') renderBuild(); else if (S.screen === 'result') renderResult(); else if (S.screen === 'trust') renderTrust(); window.scrollTo(0, 0); }
@@ -120,7 +120,7 @@ function renderBuild() {
     <div class="dots">${[0, 1, 2, 3, 4].map(i => `<i class="${i <= S.asked.length ? 'on' : ''}"></i>`).join('')}</div>
     ${S.picks.length ? `<div class="trail">${S.picks.map(p => esc(p.n)).join(' · ')}</div>` : ''}
     <div class="q">${R.q}</div><div class="sub">${R.sub}</div>
-    ${S.guide ? `<div class="guide">${S.guide}</div>` : ''}
+    <div class="guide" id="agent" style="${S.guide ? '' : 'display:none'}">${S.guide || ''}</div>
     <div class="opts ${dim === 'groove' ? 'grid' : ''}">${shown.map(o => `
       <div class="opt loading" id="o-${o.v}" onclick="tap('${o.v}')">
         <div class="row"><div class="play"><span class="tri">▶</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>
@@ -159,10 +159,39 @@ function goBack() { const h = S.hist.pop(); if (!h) return; Object.assign(S, JSO
 function handleText(raw) {
   const txt = (raw || '').trim(); if (!txt) return; const t = txt.toLowerCase();
   const hits = []; STYLES.forEach(s => [...s.al, s.he].forEach(a => { const al = a.toLowerCase(), i = t.indexOf(al); if (i >= 0 && !/[א-תa-z]/.test(t[i + al.length] || ' ')) hits.push([s, al.length]); }));
-  if (hits.length) { const s = hits.sort((a, b) => b[1] - a[1])[0][0]; moment({ action: 'talk', layer: S.dim, meta: { text: txt, named: s.id } }); return showStyle(s.id, `${s.he}. ככה הוא בנוי:`); }
-  S.context = txt; moment({ action: 'talk', layer: S.dim, meta: { text: txt } });
-  S.guide = `רשמתי שאת "${esc(txt)}". אזכור מה עבד לך ברגע כזה. בואי נמשיך להקשיב.`;
-  if (S.screen === 'build') renderBuild(); else { S.screen = 'build'; render(); }
+  /* שם סגנון קצר ("טכנו") – ישר לשם, בלי לחכות למוח */
+  if (hits.length && txt.length <= 25) { const s = hits.sort((a, b) => b[1] - a[1])[0][0]; moment({ action: 'talk', layer: S.dim, meta: { text: txt, named: s.id } }); return showStyle(s.id, `${s.he}. ככה הוא בנוי:`); }
+  askAgent(txt);
+}
+let thinking = false;
+function sayGuide(html) { const g = document.getElementById('agent'); if (g) { g.innerHTML = html; g.style.display = 'block'; } else { S.guide = html; if (S.screen === 'build') renderBuild(); else render(); } }
+async function askAgent(txt) {
+  if (thinking) return; thinking = true;
+  S.chat.push({ who: 'her', text: txt });
+  if (S.screen === 'trust') { S.screen = 'build'; render(); }
+  sayGuide(`<span class="her">${esc(txt)}</span><span class="think">רגע, חושב…</span>`);
+  let r = null;
+  try {
+    const res = await fetch(API_BASE + '/api/talk', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign({ user_key: UK, text: txt, context: S.context, chat: S.chat.slice(-7, -1),
+      state: { screen: S.screen, cands: S.cands, picks: S.picks.map(p => p.n), result: S.result && STYLE[S.result] ? STYLE[S.result].he : null } }, nowCtx())) });
+    r = res.ok ? await res.json() : null;
+  } catch (e) {}
+  thinking = false;
+  if (!r || r.error || !r.reply) { /* בלי מוח – לפחות זוכרים את ההקשר */
+    S.context = txt; moment({ action: 'talk', layer: S.dim, meta: { text: txt } });
+    return sayGuide(`רשמתי שאת "${esc(txt)}". בואי נמשיך להקשיב.`);
+  }
+  S.chat.push({ who: 'me', text: r.reply }); S.context = txt;
+  const reply = esc(r.reply) + (r.remember ? `<span class="mem">רשמתי לי: ${esc(r.remember)}</span>` : '');
+  if (r.action === 'show' && r.ids[0] && STYLE[r.ids[0]]) { S.guideNext = reply; return showStyle(r.ids[0]); }
+  if (r.action === 'narrow') {
+    const ids = r.ids.filter(id => STYLE[id]); if (ids.length >= 2) {
+      S.hist.push(JSON.stringify({ dim: S.dim, cands: S.cands, asked: S.asked, picks: S.picks, mix: S.mix }));
+      S.screen = 'build'; S.cands = ids; S.asked = []; S.picks = []; S.mix = {}; S.played = {}; S.offset = 0;
+      const nd = nextDim(); S.guide = reply; if (!nd) return finish(); S.dim = nd; return render();
+    }
+  }
+  sayGuide(reply);
 }
 function sendText() { const i = document.getElementById('say'); const v = i.value; i.value = ''; i.blur(); handleText(v); }
 let rec = null;
@@ -199,7 +228,7 @@ function renderResult() {
   const s = STYLE[S.result], nb = S.alts.map(a => STYLE[a]).concat(neighbors(s.id)).slice(0, 3);
   $app.innerHTML = `
     <div class="top"><button class="back" onclick="goBack()">→ לשנות</button><button class="chip" onclick="S=freshState(S);render()">↺ מההתחלה</button></div>
-    ${S.intro ? `<div class="guide">${esc(S.intro)}</div>` : ''}
+    <div class="guide" id="agent" style="${S.intro || S.guideNext ? '' : 'display:none'}">${S.guideNext || esc(S.intro || '')}</div>
     <div class="res"><div class="k">מה שבחרת עכשיו קוראים לו</div>
       <div class="name">${s.he}</div><div class="en">${s.en}</div>
       <div class="trail" style="margin:12px 0 0">${S.picks.map(p => esc(p.n)).join(' · ')}</div>
@@ -210,7 +239,7 @@ function renderResult() {
     <div class="fb" id="fb"><button class="btn ok" onclick="feedback(true)">פגעת ✓</button><button class="btn ghost" onclick="feedback(false)">לא בדיוק</button></div>
     <div class="alt"><div class="k">קרובים לזה</div><div class="nbs">${nb.map(n => `<button class="nb" onclick="showStyle('${n.id}')">${n.he}</button>`).join('')}</div></div>
     <div class="tiny">מחר זה יכול להיות משהו אחר לגמרי. ככה זה אמור לעבוד.</div>`;
-  S.intro = null; loadPlaylist(s);
+  S.intro = null; S.guideNext = null; loadPlaylist(s);
 }
 async function playStack() { const b = document.getElementById('stack'); if (nowKey === '_stack') { stop(); return; } stop(); b.classList.add('playing'); try { const url = await renderMix(S.mix); if (b.classList.contains('playing')) playURL(url, '_stack', false); } catch (e) { b.classList.remove('playing'); } }
 async function loadPlaylist(s) {
@@ -231,7 +260,7 @@ function feedback(ok) {
   const fb = document.getElementById('fb');
   if (ok) { fb.innerHTML = `<div class="guide">רשמתי לי. ככה אני לומד אותך – רגע אחרי רגע.</div>`; return; }
   moment({ action: 'listen', layer: 'final', cell: S.result, reaction: 'no', meta: { cell_name: STYLE[S.result].he } });
-  fb.innerHTML = `<div class="guide">תודה שאמרת. תגידי לי במילים מה חסר, או תנסי אחד מהקרובים.</div>`; document.getElementById('say').focus();
+  fb.innerHTML = `<div class="guide">תודה שאמרת. תגידי לי במילים מה חסר – אני אכוון מחדש.</div>`; document.getElementById('say').focus();
 }
 
 /* ===================== TRUST ===================== */
