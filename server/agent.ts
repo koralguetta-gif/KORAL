@@ -12,7 +12,7 @@ export const agentReady = () => KEY.length > 20;
 // גם ההוראות (prompt) והמודל יושבים שם – שינוי בהתנהגות הסוכן = git push, בלי פריסה מחדש
 let CAT: { ids: string[]; catalog: string; prompt?: string; model?: string | null; tool?: any; actions?: string[]; t: number } | null = null;
 async function catalog() {
-  if (CAT && Date.now() - CAT.t < 36e5) return CAT;
+  if (CAT && Date.now() - CAT.t < 3e5) return CAT;
   const r = await fetch("https://koralguetta-gif.github.io/KORAL/catalog.json", { headers: { "cache-control": "no-cache" } });
   if (!r.ok) { if (CAT) return CAT; throw new Error("catalog " + r.status); }
   const j = await r.json(); CAT = { ids: j.ids, catalog: j.catalog, prompt: j.prompt, model: j.model, tool: j.tool, actions: j.actions, t: Date.now() }; return CAT;
