@@ -914,7 +914,7 @@ async function exploreStep(extra) {
     ex.cur = Object.assign({}, ex.cur || {}, { reply: (r && r.reply) || 'משהו נתקע לי. נסי שוב, או תכתבי לי מה בא לך.' });
     return renderExplore();
   }
-  ex.cur = { reply: r.reply, options: r.options, done: r.done };
+  ex.cur = { reply: r.reply, options: r.options, done: r.done, near: r.near || [] };
   if (r.done) { S.screen = 'exresult'; return renderExResult(); }
   renderExplore();
 }
@@ -962,7 +962,7 @@ function exBack() {
 function exSay(txt) { const ex = exState(); if (ex.cur && ex.cur.options) ex.steps.push({ options: ex.cur.options, said: txt, reply: ex.cur.reply }); else ex.steps.push({ said: txt, options: [] }); exploreStep({ text: txt }); }
 function renderExResult() {
   stop(); const ex = exState(), o = ex.cur.options[0], trail = [ex.family].concat(exTrail()).filter(Boolean);
-  const tracks = (o.tracks && o.tracks.length ? o.tracks : [o.track]).slice(0, 8);
+  const tracks = (o.tracks && o.tracks.length ? o.tracks : [o.track]).slice(0, 15);
   PL = { tracks };
   moment({ action: 'listen', layer: 'final', cell: o.qid, reaction: 'yes', meta: { cell_name: o.label, en: o.en, via: 'explore' } });
   $app.innerHTML = `
@@ -977,6 +977,7 @@ function renderExResult() {
       <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
       <a class="yt" href="${ytSearch(t.artist + ' ' + t.title)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ יוטיוב</a></div>`).join('')}
       <a class="mix" href="${ytSearch((o.en || o.label) + ' mix')}" target="_blank" rel="noopener">מיקס ${esc(o.label)} ביוטיוב ↗</a></div>
+    ${(ex.cur.near || []).length ? `<div class="alt"><div class="k">קרובים לזה – לזוז הצידה</div><div class="nbs">${ex.cur.near.map(n => `<button class="nb" onclick="exSay('בואי נלך לכיוון ${esc(n.label).replace(/'/g, '')}')">${esc(n.label)}</button>`).join('')}</div></div>` : ''}
     <div class="fb" id="fb"><button class="btn ok" onclick="document.getElementById('fb').innerHTML='<div class=\\'guide\\'>רשמתי לי. ככה אני לומד אותך.</div>'">פגעת ✓</button>
       <button class="btn ghost" onclick="exSay('להמשיך לחפור עמוק יותר מכאן')">לחפור עוד</button></div>
     <div class="tiny">מחר זה יכול להיות משהו אחר לגמרי. ככה זה אמור לעבוד.</div>`;

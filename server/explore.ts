@@ -55,6 +55,8 @@ const TOOLS = [
       options: { type: "array", items: { type: "object", required: ["label"], properties: {
         qid: { type: "string", description: "ז׳אנר מהמסד" }, query: { type: "string", description: "במקום qid: טעם בתוך ז׳אנר לחיפוש שירים – עידן, אווירה או אמן, באנגלית או בעברית (\"mizrahi 80s\", \"zohar argov\", \"מזרחית שמחה\")" }, label: { type: "string", description: "שם קצר בעברית" }, hint: { type: "string", description: "עד 6 מילים: מה מרגישים" } } } },
       done: { type: "boolean" },
+      widen: { type: "array", description: "רק עם done: 3–4 כיוונים קרובים בתוך הסגנון (אמנים שונים, תתי־סגנונות) – מהם נבנה פלייליסט רחב ויוצגו ככפתורי 'קרובים'", items: { type: "object", required: ["label"], properties: {
+        qid: { type: "string" }, query: { type: "string" }, label: { type: "string" } } } },
       remember: { type: ["string", "null"] } } } },
 ];
 
@@ -133,7 +135,7 @@ export async function explore(b: Body, deps: Deps) {
       const opts = (Array.isArray(inp.options) ? inp.options : []).slice(0, 4);
       const filled = (await Promise.all(opts.map(async (o: any) => {
         const s = await sampleTrack(deps, { qid: o.qid ? String(o.qid) : undefined, query: o.query ? String(o.query) : undefined }, played).catch(() => null);
-        return s ? { qid: s.genre.qid, query: o.query ?? null, label: String(o.label || s.genre.he || s.genre.en).slice(0, 40), hint: String(o.hint ?? "").slice(0, 60), en: s.genre.en, he: s.genre.he, track: s.track, tracks: inp.done ? s.tracks.slice(0, 10) : undefined } : null;
+        return s ? { qid: s.genre.qid, query: o.query ?? null, label: String(o.label || s.genre.he || s.genre.en).slice(0, 40), hint: String(o.hint ?? "").slice(0, 60), en: s.genre.en, he: s.genre.he, track: s.track, tracks: inp.done ? s.tracks.slice(0, 12) : undefined } : null;
       }))).filter(Boolean) as any[];
       const missing = opts.length - filled.length;
       if (!filled.length || (!inp.done && filled.length < 2 && turn < 5)) {
@@ -143,11 +145,27 @@ export async function explore(b: Body, deps: Deps) {
         ] });
         continue;
       }
+      let near: any[] = [];
+      if (inp.done && filled.length) {
+        // תוצאה רחבה: הסגנון + 3–4 כיוונים קרובים, משולבים לסירוגין, עד 2 שירים לאמן
+        const wid = (Array.isArray(inp.widen) ? inp.widen : []).slice(0, 4);
+        const extra = await Promise.all(wid.map((w: any) => sampleTrack(deps, { qid: w.qid ? String(w.qid) : undefined, query: w.query ? String(w.query) : undefined }, played).catch(() => null)));
+        const lists = [filled[0].tracks ?? [], ...extra.map((e) => e?.tracks ?? [])];
+        const out: Track[] = [], seen = new Set<string>(), per = new Map<string, number>();
+        for (let i = 0; out.length < 15 && lists.some((l) => l[i]); i++) for (const l of lists) {
+          const t = l[i]; if (!t || out.length >= 15) continue;
+          const a = t.artist.toLowerCase(), k = a + "|" + t.title.toLowerCase();
+          if (seen.has(k) || (per.get(a) ?? 0) >= 2) continue;
+          seen.add(k); per.set(a, (per.get(a) ?? 0) + 1); out.push(t);
+        }
+        filled[0].tracks = out;
+        near = wid.map((w: any, i: number) => extra[i] ? { label: String(w.label).slice(0, 40), qid: w.qid ?? null, query: w.query ?? null } : null).filter(Boolean);
+      }
       const remember = typeof inp.remember === "string" && inp.remember.trim() ? inp.remember.trim() : null;
       if (remember) await agentNote(u, remember).catch(() => {});
       await saveMoment({ user_key: u, action: "talk", layer: "explore", context: b.context ?? b.text ?? null, local_hour: b.local_hour ?? null, weekday: b.weekday ?? null, tz: b.tz ?? null,
         meta: { agent: "1", explore: "1", text: b.text ?? null, reply: inp.reply, options: filled.map((f) => ({ qid: f.qid, label: f.label })), done: !!inp.done, model: conf.model, usage } }).catch(() => {});
-      return { reply: String(inp.reply ?? "").slice(0, 300), options: filled, done: !!inp.done && filled.length >= 1, remember };
+      return { reply: String(inp.reply ?? "").slice(0, 300), options: filled, done: !!inp.done && filled.length >= 1, near, remember };
     }
     // look calls
     const results = await Promise.all(calls.map(async (x: any) => ({ type: "tool_result", tool_use_id: x.id, content: JSON.stringify(x.name === "look" ? await lookGenre(x.input ?? {}).catch((e) => ({ error: String(e) })) : { error: "unknown tool" }) })));
