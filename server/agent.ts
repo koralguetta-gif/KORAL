@@ -10,41 +10,18 @@ export const agentReady = () => KEY.length > 20;
 
 // הקטלוג נבנה מ־styles.js ומוגש מהאתר (catalog.json) – מקור אמת אחד לאפליקציה ולסוכן
 // גם ההוראות (prompt) והמודל יושבים שם – שינוי בהתנהגות הסוכן = git push, בלי פריסה מחדש
-let CAT: { ids: string[]; catalog: string; prompt?: string; model?: string | null; t: number } | null = null;
+let CAT: { ids: string[]; catalog: string; prompt?: string; model?: string | null; tool?: any; actions?: string[]; t: number } | null = null;
 async function catalog() {
   if (CAT && Date.now() - CAT.t < 36e5) return CAT;
   const r = await fetch("https://koralguetta-gif.github.io/KORAL/catalog.json", { headers: { "cache-control": "no-cache" } });
   if (!r.ok) { if (CAT) return CAT; throw new Error("catalog " + r.status); }
-  const j = await r.json(); CAT = { ids: j.ids, catalog: j.catalog, prompt: j.prompt, model: j.model, t: Date.now() }; return CAT;
+  const j = await r.json(); CAT = { ids: j.ids, catalog: j.catalog, prompt: j.prompt, model: j.model, tool: j.tool, actions: j.actions, t: Date.now() }; return CAT;
 }
 
 const DAY = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
 
-const system = (CATALOG: string) => `אתה "החבר" באפליקציה של קורל לגילוי מוזיקה. מדריך, לא מורה. אכפת לך שיהיה לה טוב, ואתה ישר איתה.
-
-איך האפליקציה עובדת: היא לא עונה על שאלונים – היא מקשיבה ובוחרת. קודם הביט (9 משפחות), אחר כך מהירות, מה הבס עושה, צליל, ובסוף מילים. מקסימום 5 סבבים, ואז היא מקבלת שם של סגנון ושירים אמיתיים ביוטיוב.
-אתה נכנס כשהיא כותבת או מדברת. התפקיד שלך: להבין מה בא לה עכשיו ולכוון את ההקשבה – לא להחליף אותה.
-
-איך אתה מדבר:
-- עברית מדוברת, בגוף שני נקבה, חם ופשוט. 1–2 משפטים קצרים. בלי רשימות, בלי אימוג׳ים, בלי מירכאות מסביב.
-- ישר: אם אתה לא מכיר אותה מספיק – תגיד. אם אתה מנחש – תגיד שזה ניחוש.
-- אל תשאל שאלות. אם חייבים – לכל היותר שאלה אחת קצרה, ורק כשאי אפשר לכוון בלעדיה. עדיף "בואי נקשיב" על פני שאלה.
-- אל תסביר מוזיקה כמו מורה. שם של סגנון ומשפט על מה מרגישים – זה מספיק.
-- "עכשיו", לא "בכלל": מה שבא לה היום לא אומר מה היא. אל תקבע לה זהות.
-
-הפעולה (שדה action):
-- keep – רק לענות, לא לשנות את מה שפתוח.
-- narrow – לצמצם את ההקשבה לקבוצה של 2–12 סגנונות שמתאימים למה שאמרה. היא תמשיך לבחור באוזן מתוכם. זו ברירת המחדל כשהיא מתארת מצב, מקום או תחושה.
-- show – לקפוץ ישר לסגנון אחד, רק כשהיא ביקשה משהו מאוד ספציפי או אמרה "תבחר אתה".
-השתמש רק במזהים מהקטלוג. כשאתה מצמצם, הישען קודם על הביט והמהירות המורגשת (עייפה בנסיעה בלילה ≠ 140 bpm), אחר כך על הצליל והקול.
-אם היא כבר במסך תוצאה ואומרת שזה לא זה – תציע כיוון אחר עם narrow או show.
-
-זיכרון (שדה remember): רק אם אמרה או הראתה משהו שכדאי לזכור לפעמים הבאות – משפט קצר בגוף שלישי, עם ההקשר ("בנסיעות ארוכות בלילה בא לה ביט איטי ועמוק"). לא לרשום דברים חד־פעמיים או מובנים מאליהם. אחרת null.
-
-תמיד תענה דרך הכלי respond.
-
-הקטלוג (מזהה | שם | ביט | מהירות | בס | צליל | קול | צבע | מה מאפיין):
-${CATALOG}`;
+// גיבוי בלבד – ההוראות האמיתיות ב־catalog.json (src/agent_prompt.md)
+const system = (CATALOG: string) => `אתה החבר באפליקציה של קורל לגילוי מוזיקה. ענה בעברית, משפט אחד, ופעל דרך הכלי respond.\n\nהקטלוג:\n${CATALOG}`;
 
 const TOOL = {
   name: "respond",
@@ -67,13 +44,13 @@ type TalkBody = {
   chat?: { who: "her" | "me"; text: string }[];
 };
 
-async function callClaude(system: string, messages: unknown[], modelList: string[]) {
+async function callClaude(system: string, messages: unknown[], modelList: string[], tool: any = TOOL) {
   let last = "";
   for (const model of modelList) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model, max_tokens: 1500, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools: [TOOL], tool_choice: { type: "auto" } }),
+      body: JSON.stringify({ model, max_tokens: 1500, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages, tools: [tool], tool_choice: { type: "auto" } }),
     });
     if (r.ok) { const j = await r.json(); const t = (j.content ?? []).find((c: any) => c.type === "tool_use"); if (t) return { ...t.input, model, usage: j.usage };
       const txt = (j.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ").trim();
@@ -119,8 +96,9 @@ export async function talk(b: TalkBody) {
   if (msgs.length && msgs[msgs.length - 1].role === "user") msgs[msgs.length - 1].content += "\n\n" + final; else msgs.push({ role: "user", content: final });
 
   const sys = cat.prompt ? cat.prompt.replace("{{CATALOG}}", CATALOG) : system(CATALOG);
-  const out: any = await callClaude(sys, msgs, models(cat.model));
-  let action = ["keep", "narrow", "show"].includes(out.action) ? out.action : "keep";
+  const out: any = await callClaude(sys, msgs, models(cat.model), cat.tool ?? TOOL);
+  const ACTIONS = cat.actions ?? ["keep", "narrow", "show"];
+  let action = ACTIONS.includes(out.action) ? out.action : "keep";
   let ids = (Array.isArray(out.ids) ? out.ids : []).filter((id: string) => IDS.includes(id));
   if (action === "show" && !ids.length) action = "keep";
   if (action === "show") ids = ids.slice(0, 1);

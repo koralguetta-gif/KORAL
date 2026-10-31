@@ -704,11 +704,27 @@ const CLIPS = {};
 const clipFor = id => CLIPS[id] || (CLIPS[id] = api('pick', { s: STYLE[id].seeds }).then(t => { if (!t || !t.preview) throw new Error('no preview'); return t; }).catch(e => { delete CLIPS[id]; throw e; }));
 const SEEDCLIP = {};
 const seedClip = sd => SEEDCLIP[sd.join('|')] || (SEEDCLIP[sd.join('|')] = api('pick', { s: [sd] }).then(t => { if (!t || !t.preview) throw new Error('no preview'); return t; }).catch(e => { delete SEEDCLIP[sd.join('|')]; throw e; }));
+/* "אף אחד מאלה": עוד שירים אמיתיים מאותו עולם, לא יציאה ממנו */
+const PLAYLISTS = {};
+const playlistFor = id => PLAYLISTS[id] || (PLAYLISTS[id] = api('playlist', { q: STYLE[id].q, s: STYLE[id].seeds }).catch(e => { delete PLAYLISTS[id]; throw e; }));
+const songKey = (a, t) => (a + '|' + t).toLowerCase().replace(/\(.*?\)/g, '').trim();
+async function moreSongs() {
+  const ids = S.cands.slice(0, 4), shown = new Set(S.shownSongs || []);
+  (S.opts || []).forEach(o => o.seed && shown.add(songKey(o.seed[0], o.seed[1])));
+  sayGuide('<span class="think">מביא עוד שירים מהעולם הזה…</span>');
+  const lists = await Promise.all(ids.map(id => playlistFor(id).then(r => (r.tracks || []).filter(t => t.preview && !shown.has(songKey(t.artist, t.title))).map(t => [id, t])).catch(() => [])));
+  const out = []; for (let i = 0; out.length < 4 && lists.some(l => l[i]); i++) lists.forEach(l => { if (l[i] && out.length < 4) out.push(l[i]); });
+  if (!out.length) { S.guide = 'אלה כל השירים שיש לי בעולם הזה. בואי נצא צעד אחד אחורה ונבחר כיוון קרוב.'; return S.hist.length ? goBack(true) : renderBuild(); }
+  out.forEach(([, t]) => shown.add(songKey(t.artist, t.title)));
+  S.shownSongs = [...shown];
+  S.extra = out.map(([id, t], i) => ({ v: 'x' + (S.shownSongs.length) + i, n: t.title, d: t.artist + (ids.length > 1 ? ' · ' + STYLE[id].he : ''), ids: [id], kind: 'clip', url: t.preview, seed: [t.artist, t.title] }));
+  S.guide = 'עוד כמה מאותו עולם:'; S.dim = 'songs'; renderBuild();
+}
 const PREP = {};
-function prepare(o) { if (PREP[o.v + S.dim]) return PREP[o.v + S.dim]; return (PREP[o.v + S.dim] = o.kind === 'loop' ? renderMix(o.mix).then(url => ({ url })) : (o.seed ? seedClip(o.seed) : clipFor(o.rep)).then(t => ({ url: t.preview, track: o.seed ? null : t }))); }
+function prepare(o) { if (PREP[o.v + S.dim]) return PREP[o.v + S.dim]; return (PREP[o.v + S.dim] = o.url ? Promise.resolve({ url: o.url }) : o.kind === 'loop' ? renderMix(o.mix).then(url => ({ url })) : (o.seed ? seedClip(o.seed) : clipFor(o.rep)).then(t => ({ url: t.preview, track: o.seed ? null : t }))); }
 
 function renderBuild() {
-  const dim = S.dim, R = ROUND_TEXT[dim], all = optionsFor(dim);
+  const dim = S.dim, R = ROUND_TEXT[dim], all = dim === 'songs' && S.extra ? S.extra : optionsFor(dim);
   S.opts = all; Object.keys(PREP).forEach(k => delete PREP[k]);
   const shown = all.length > 4 && dim !== 'groove' ? all.slice(S.offset, S.offset + 4) : all;
   const first = !S.asked.length;
@@ -728,6 +744,7 @@ function renderBuild() {
         <button class="choose" onclick="event.stopPropagation();choose('${o.v}')">זה ✓</button></div>`).join('')}
     </div>
     ${all.length > 4 && dim !== 'groove' ? `<button class="btn ghost" onclick="S.offset=(S.offset+4)%${all.length};renderBuild()">עוד אפשרויות ↻</button>` : ''}
+    ${dim === 'songs' ? `<button class="btn ghost" onclick="moreSongs()">אף אחד מאלה – עוד שירים ↻</button>` : ''}
     <div class="tiny">${S.cands.length > 1 ? `עוד ${S.cands.length} סגנונות פתוחים` : 'כמעט שם'}</div>`;
   S.guide = null;
   const at = S.dim + S.asked.length;
@@ -751,10 +768,11 @@ function choose(v) {
   S.cands = o.ids; S.asked = [...S.asked, dim]; S.picks = [...S.picks, { dim, v, n: o.n }];
   if (o.mix) S.mix = o.mix;
   if (o.seed) S.song = o.seed;
+  S.extra = null; S.shownSongs = [];
   S.played = {}; S.offset = 0;
   const nd = nextDim(); if (!nd) return finish(); S.dim = nd; render();
 }
-function goBack() { const h = S.hist.pop(); if (!h) return; Object.assign(S, JSON.parse(h)); S.screen = 'build'; S.played = {}; S.offset = 0; render(); }
+function goBack(keepGuide) { const h = S.hist.pop(); if (!h) return; const g = S.guide; Object.assign(S, JSON.parse(h)); S.screen = 'build'; S.played = {}; S.offset = 0; S.extra = null; S.shownSongs = []; if (keepGuide === true) S.guide = g; render(); }
 
 /* ===================== WORDS & VOICE ===================== */
 function handleText(raw) {
@@ -785,10 +803,16 @@ async function askAgent(txt) {
   S.chat.push({ who: 'me', text: r.reply }); S.context = txt;
   const reply = esc(r.reply) + (r.remember ? `<span class="mem">רשמתי לי: ${esc(r.remember)}</span>` : '');
   if (r.action === 'show' && r.ids[0] && STYLE[r.ids[0]]) { S.guideNext = reply; return showStyle(r.ids[0]); }
+  if (r.action === 'more') {
+    sayGuide(reply);
+    if (S.screen === 'result') { S.hist.push(JSON.stringify({ dim: S.dim, cands: S.cands, asked: S.asked, picks: S.picks, mix: S.mix })); S.screen = 'build'; S.cands = [S.result]; S.dim = 'songs'; S.asked = S.asked.filter(d => d !== 'songs').concat('songs'); }
+    if (S.dim === 'songs' || S.cands.length <= 4) { S.dim = 'songs'; return moreSongs().then(() => sayGuide(reply)); }
+    return;
+  }
   if (r.action === 'narrow') {
     const ids = r.ids.filter(id => STYLE[id]); if (ids.length >= 2) {
       S.hist.push(JSON.stringify({ dim: S.dim, cands: S.cands, asked: S.asked, picks: S.picks, mix: S.mix }));
-      S.screen = 'build'; S.cands = ids; S.asked = []; S.picks = []; S.mix = {}; S.played = {}; S.offset = 0;
+      S.screen = 'build'; S.cands = ids; S.asked = []; S.picks = []; S.mix = {}; S.played = {}; S.offset = 0; S.extra = null; S.shownSongs = [];
       const nd = nextDim(); S.guide = reply; if (!nd) return finish(); S.dim = nd; return render();
     }
   }
