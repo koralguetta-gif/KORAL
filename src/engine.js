@@ -180,3 +180,75 @@ function playMix(mix) {
   player = p; return p;
 }
 window.__level = () => { if (!analyser) return 0; const a = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(a); let s = 0; for (const x of a) s += x * x; return Math.sqrt(s / a.length); };
+
+/* ===================== BASS – מה הבס עושה מול הקיק ===================== */
+function bassNote(m, t, len, v, bus, opt = {}) {
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + 0.008);
+  g.gain.setValueAtTime(v, t + len * 0.75); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  const f = lp(opt.cut || 700, opt.q || 0.8); f.connect(g); g.connect(bus);
+  const o = ctx.createOscillator(); o.type = opt.type || 'sine'; o.frequency.setValueAtTime(mtof(opt.from != null ? opt.from : m), t);
+  if (opt.from != null) o.frequency.exponentialRampToValueAtTime(mtof(m), t + (opt.glide || 0.12));
+  if (opt.drop) o.frequency.exponentialRampToValueAtTime(mtof(m) * 0.5, t + opt.drop);
+  if (opt.dist) { const ws = ctx.createWaveShaper(), cv = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; cv[i] = Math.tanh(x * opt.dist); } ws.curve = cv; o.connect(ws); ws.connect(f); } else o.connect(f);
+  o.start(t); o.stop(t + len + 0.05); return { o, f, g };
+}
+const BASS = {
+  none() {}, soft(s, t, r, bus, d) { if (s === 0 || s === 8) bassNote(r, t, d * 6, 0.18, bus, { cut: 300 }); },
+  round(s, t, r, bus, d) { if (s === 0) bassNote(r, t, d * 3, 0.3, bus, { cut: 400 }); if (s === 6 || s === 10) bassNote(r, t, d * 1.5, 0.25, bus, { cut: 400 }); },
+  offbeat(s, t, r, bus, d) { if (s % 4 === 2) bassNote(r, t, d * 1.6, 0.28, bus, { type: 'sawtooth', cut: 380 }); },
+  rolling(s, t, r, bus, d) { if (s % 4 !== 0) bassNote(r + (s % 4 === 3 ? 12 : 0), t, d * 0.8, 0.22, bus, { type: 'sawtooth', cut: 520, q: 3 }); },
+  logdrum(s, t, r, bus, d, bar) { const hits = bar % 2 ? [3, 6, 11, 14] : [3, 7, 10, 13]; if (hits.includes(s)) { bassNote(r + [12, 7, 12, 0][hits.indexOf(s)], t, d * 2.2, 0.34, bus, { cut: 900, drop: d * 2 }); noise(t, 0.012, bp(1800, 3), 0.12, bus); } },
+  disco(s, t, r, bus, d) { if (s % 2 === 0) bassNote(r + (s % 4 ? 12 : 0), t, d * 0.9, 0.24, bus, { type: 'sawtooth', cut: 900 }); },
+  kick(s, t, r, bus, d) { if (s % 4 === 0) bassNote(r + 12, t + 0.02, d * 3.2, 0.32, bus, { type: 'sine', dist: 9, cut: 1600, from: r + 30, glide: 0.06 }); },
+  rumble(s, t, r, bus, d) { if (s % 4 === 0) { const n = bassNote(r - 12, t + 0.03, d * 3.6, 0.16, bus, { cut: 160 }); send(n.g, 1.4); noise(t + 0.03, d * 3, lp(180), 0.12, bus, 0.02); } },
+  '808'(s, t, r, bus, d) { if (s === 0 || s === 10) bassNote(r, t, d * (s ? 5.5 : 9), 0.4, bus, { cut: 1200, dist: 1.6 }); },
+  slide(s, t, r, bus, d, bar) { const seq = [[0, 0], [7, 3], [10, -2]]; const hit = seq.find(h => h[0] === s); if (hit) { const prev = seq[(seq.indexOf(hit) + 2) % 3][1]; bassNote(r + hit[1], t, d * 3, 0.4, bus, { cut: 1200, dist: 1.6, from: r + prev, glide: 0.14 }); } },
+  wobble(s, t, r, bus, d) { if (s === 0 || s === 8) { const n = bassNote(r, t, d * 8, 0.3, bus, { type: 'sawtooth', cut: 300, q: 8 }); const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 1 / (d * 2); lg.gain.value = 900; l.connect(lg); lg.connect(n.f.frequency); l.start(t); l.stop(t + d * 8); } },
+  sub(s, t, r, bus, d) { if (s === 0 || s === 10) bassNote(r - 12, t, d * 4.5, 0.42, bus, { cut: 200 }); },
+  reese(s, t, r, bus, d) { if (s === 0) [-14, 14].forEach(dt => { const n = bassNote(r, t, d * 15.5, 0.16, bus, { type: 'sawtooth', cut: 420, q: 2 }); n.o.detune.value = dt; n.f.frequency.linearRampToValueAtTime(900, t + d * 8); n.f.frequency.linearRampToValueAtTime(380, t + d * 15); }); },
+  groove(s, t, r, bus, d) { const line = { 0: 0, 3: 0, 6: 7, 8: 5, 10: 0, 11: 3, 14: 10 }; if (line[s] != null) bassNote(r + line[s], t, d * 0.9, 0.3, bus, { type: 'sawtooth', cut: 1100 }); },
+  follow(s, t, r, bus, d) { if (s % 4 === 0) bassNote(r, t, d * 1.6, 0.34, bus, { cut: 500 }); },
+  dub(s, t, r, bus, d) { const line = { 0: 0, 3: 7, 6: 12, 10: 10, 12: 7 }; if (line[s] != null) bassNote(r + line[s], t, d * 2.4, 0.34, bus, { cut: 350 }); },
+};
+
+/* ===================== OFFLINE RENDER → WAV ===================== */
+/* באייפון צליל שנוצר בדפדפן נחסם לפעמים. לכן כל לופ מרונדר מראש לקובץ, ומתנגן באותו נגן כמו שיר אמיתי. */
+const RCACHE = {};
+function wavURL(buf) {
+  const ch = buf.numberOfChannels, n = buf.length, sr = buf.sampleRate, b = new ArrayBuffer(44 + n * ch * 2), v = new DataView(b);
+  const w = (o, x) => { for (let i = 0; i < x.length; i++) v.setUint8(o + i, x.charCodeAt(i)); };
+  let peak = 0.001; const data = []; for (let c = 0; c < ch; c++) { data.push(buf.getChannelData(c)); for (let i = 0; i < n; i++) { const a = Math.abs(data[c][i]); if (a > peak) peak = a; } }
+  const gain = Math.min(4, 0.89 / peak);
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, ch, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr * ch * 2, true); v.setUint16(32, ch * 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * ch * 2, true);
+  let o = 44; for (let i = 0; i < n; i++) for (let c = 0; c < ch; c++) { v.setInt16(o, Math.max(-1, Math.min(1, data[c][i] * gain)) * 32767, true); o += 2; }
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
+function renderMix(mix) {
+  const key = JSON.stringify(mix); if (RCACHE[key]) return RCACHE[key];
+  const OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const sr = 44100, bpm = mix.bpm || 110, d = 60 / bpm / 4, bars = bpm < 90 ? 2 : 4, len = Math.ceil(sr * d * 16 * bars);
+  const oc = new OAC(2, len, sr);
+  const saved = [ctx, master, reverbIn]; ctx = oc;
+  try {
+    master = oc.createDynamicsCompressor(); master.threshold.value = -16; master.ratio.value = 4; master.connect(oc.destination);
+    const rv = oc.createConvolver(), il = Math.floor(sr * 1.8), ir = oc.createBuffer(2, il, sr);
+    for (let c = 0; c < 2; c++) { const x = ir.getChannelData(c); for (let i = 0; i < il; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / il, 2.6); }
+    rv.buffer = ir; reverbIn = oc.createGain(); reverbIn.gain.value = 0.25; reverbIn.connect(rv); rv.connect(master);
+    if (!noiseBuf) { noiseBuf = oc.createBuffer(1, sr * 2, sr); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1; }
+    const bus = oc.createGain(); bus.gain.value = 0.9; bus.connect(master);
+    const H = HARM[mix.mood || 'dark'];
+    for (let step = 0; step < 16 * bars; step++) {
+      const s = step % 16, bar = Math.floor(step / 16) % 4, c = H.ch[bar], t = step * d;
+      if (mix.groove && GROOVES[mix.groove]) GROOVES[mix.groove](s, t, bus, d);
+      if (mix.bass && BASS[mix.bass]) BASS[mix.bass](s, t, c[0] - 24, bus, d, bar);
+      (mix.palette || []).forEach(n => INSTR[n] && INSTR[n](s, t, c, H.sc, bus, d, bar, mix.groove));
+    }
+  } finally { [ctx, master, reverbIn] = saved; }
+  const p = new Promise((res, rej) => {
+    oc.oncomplete = e => res(e.renderedBuffer);
+    const r = oc.startRendering(); if (r && r.then) r.then(res, rej);
+  }).then(wavURL);
+  p.catch(() => delete RCACHE[key]);
+  return (RCACHE[key] = p);
+}

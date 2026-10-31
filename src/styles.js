@@ -140,6 +140,18 @@ const STYLES = [
  {id:'handpan', he:'האנדפן / מדיטטיבי', en:'Handpan', groove:'pulse', bpm:70, palette:['bell'], texture:['ocean','birds'], vocal:'none', mood:'bright',
   tell:'כלי מתכת עגול שנשמע כמו מים ופעמונים. שקט שמח.', q:'handpan meditation', al:['האנדפן','handpan','מדיטטיבי'],
   seeds:[['Hang Massive','Once Again'],['Hang Massive','Released Into Love'],['Malte Marten','Handpan Dream']]},
+ {id:'amapiano', he:'אמאפיאנו', en:'Amapiano', groove:'four', bpm:112, palette:['rhodes','pad'], texture:['shaker'], vocal:'sing', mood:'bright',
+  tell:'קיק רך, שייקר שלא מפסיק, ולוג־דראם – בס נקישתי שקופץ בין הפעמות. איטי וחושני, מדרום אפריקה.', q:'amapiano', al:['אמאפיאנו','amapiano'],
+  seeds:[['Tyla','Water'],['Uncle Waffles','Tanzania'],['Kabza De Small','Sponono']]},
+ {id:'hardstyle', he:'הארדסטייל', en:'Hardstyle', groove:'four', bpm:150, palette:['synth'], texture:['none'], vocal:'none', mood:'dark',
+  tell:'קיק מעוות ומכוון שהוא בעצמו המלודיה, ומעליו סינתים ענקיים. מהולנד, לפסטיבלים.', q:'hardstyle', al:['הארדסטייל','hardstyle'],
+  seeds:[['Headhunterz','Dragonborn'],['Brennan Heart','Imaginary'],['Wildstylez','Lose My Mind']]},
+ {id:'drill', he:'דריל', en:'Drill', groove:'half', bpm:142, palette:['piano','sub'], texture:['none'], vocal:'rap', mood:'dark',
+  tell:'היי־האטים קופצניים ושבורים, ובס 808 שמחליק בין תווים. קר ומאיים, מלונדון וברוקלין.', q:'drill', al:['דריל','drill'],
+  seeds:[['Pop Smoke','Dior'],['Central Cee','Doja'],['Fivio Foreign','Big Drip']]},
+ {id:'funk', he:'פאנק', en:'Funk', groove:'rock', bpm:105, palette:['sub','egtr'], texture:['none'], vocal:'sing', mood:'bright',
+  tell:'הבס מוביל, הגיטרה קצרה וחדה, והכול יושב על הפעמה הראשונה. גרוב שאי אפשר לעמוד מולו.', q:'funk classics', al:['פאנק','funk','פאנקי'],
+  seeds:[['Vulfpeck','Dean Town'],['James Brown','I Got You (I Feel Good)'],['Parliament','Give Up the Funk']]},
 ];
 const STYLE = Object.fromEntries(STYLES.map(s => [s.id, s]));
 
@@ -176,4 +188,41 @@ const DIMS = {
   vocal:   {q:'ועל כל זה – מילים?',        sub:'השכבה האחרונה.'},
 };
 const tempoBand = bpm => bpm < 95 ? 'slow' : bpm < 125 ? 'mid' : 'fast';
-if (typeof module !== 'undefined') module.exports = { STYLES, LABELS };
+
+/* ===== עץ הזיהוי: משפחות ביט, וסדר הסבבים בכל משפחה ===== */
+const FAMILIES = {
+  four:     { n:'ארבע על הרצפה', d:'קיק על כל פעמה',          order:['groove','tempo','bass','sound','vocal'] },
+  backbeat: { n:'בקביט',         d:'סנר על 2 ו־4, ראש מהנהן',   order:['groove','sound','tempo','vocal'] },
+  halftime: { n:'חצי־זמן',       d:'כבד, סנר רק על פעמה 3',     order:['groove','tempo','bass','sound','vocal'] },
+  broken:   { n:'שבור',          d:'קיק מדלג ולא צפוי',          order:['groove','tempo','bass','sound','vocal'] },
+  tresillo: { n:'3+3+2',         d:'בום־צ׳ק־בום־צ׳יק',            order:['groove','tempo','bass','sound','vocal'] },
+  reggae:   { n:'רגאיי',          d:'הפעמה הראשונה ריקה',         order:['groove','sound','vocal'] },
+  dumtek:   { n:'דום־טק',         d:'דרבוקה: דום נמוך, טק חד',     order:['groove','tempo','sound','vocal'] },
+  swing:    { n:'סווינג',         d:'מתנדנד, מצלת רייד',          order:['groove','sound','tempo','vocal'] },
+  none:     { n:'בלי ביט',        d:'הצליל עצמו מוביל',           order:['groove','sound','tempo','vocal'] },
+};
+const FAM_OF = {
+  deep_house:'four', melodic_techno:'four', techno:'four', afro_house:'four', organic_house:'four', trance:'four', psytrance:'four',
+  nu_disco:'four', edm:'four', vocal_house:'four', amapiano:'four', hardstyle:'four',
+  dubstep:'halftime', trap:'halftime', dark_rnb:'halftime', drill:'halftime',
+  big_beat:'broken', uk_garage:'broken', liquid_dnb:'broken', dnb:'broken',
+  reggaeton:'tresillo', afrobeats:'tresillo', flamenco:'tresillo', reggae:'reggae', mizrahi:'dumtek', arabic_classic:'dumtek',
+  jazz:'swing', gypsy_jazz:'swing', bossa:'swing',
+  indie_folk:'none', ballad:'none', neoclassical:'none', classical:'none', cinematic:'none', ambient:'none', handpan:'none',
+};
+const BASS_OF = {
+  deep_house:'round', afro_house:'round', organic_house:'round', melodic_techno:'rolling', psytrance:'rolling', techno:'rumble',
+  trance:'offbeat', edm:'offbeat', nu_disco:'disco', vocal_house:'disco', amapiano:'logdrum', hardstyle:'kick',
+  dubstep:'wobble', trap:'808', dark_rnb:'808', drill:'slide', big_beat:'groove', uk_garage:'sub', liquid_dnb:'sub', dnb:'reese',
+  reggaeton:'follow', afrobeats:'groove', flamenco:'none', funk:'groove', reggae:'dub',
+};
+STYLES.forEach(s => { s.family = FAM_OF[s.id] || 'backbeat'; s.bass = BASS_OF[s.id] || 'soft'; });
+LABELS.bass = {
+  round:{n:'עגול ויציב', d:'בס רך שעוטף'}, offbeat:{n:'פועם בין הפעמות', d:'בום־בה, בום־בה'}, rolling:{n:'מתגלגל', d:'שמיניות בלי הפסקה'},
+  logdrum:{n:'קופץ ונקישתי', d:'לוג־דראם'}, disco:{n:'קופץ באוקטבות', d:'כמו בדיסקו'}, kick:{n:'קיק מעוות', d:'הקיק הוא המלודיה'},
+  rumble:{n:'רעם עמום', d:'רעש נמוך מתחת לקיק'}, '808':{n:'ארוך ועמוק', d:'808 שמחזיק'}, slide:{n:'מחליק', d:'קופץ בין תווים'},
+  wobble:{n:'מתנדנד', d:'וובל'}, sub:{n:'תת־קרקעי', d:'מורגש יותר משנשמע'}, reese:{n:'נוהם', d:'רחב ומאיים'},
+  groove:{n:'מוביל ומקפץ', d:'ליין של פאנק'}, follow:{n:'צמוד לקיק', d:'פשוט וחזק'}, none:{n:'בלי בס', d:'רק הקצב'},
+  soft:{n:'רך', d:'ברקע'}, dub:{n:'כבד ומלודי', d:'דאב'},
+};
+if (typeof module !== 'undefined') module.exports = { STYLES, STYLE, LABELS, FAMILIES };
