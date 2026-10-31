@@ -5,9 +5,11 @@
 // GET  <fn>/api/health
 import { saveMoment, me, trust, tellNote, type Moment } from "./memory.ts";
 import { talk, agentReady } from "./agent.ts";
+import { explore } from "./explore.ts";
 
 const DZ = Deno.env.get("DEEZER_BASE") ?? "https://api.deezer.com";
-const TTL = 1000 * 60 * 60 * 12;
+// קישורי השמע של Deezer פגים אחרי ~15 דקות – לכן המטמון קצר
+const TTL = 1000 * 60 * 10;
 const cache = new Map<string, { t: number; v: unknown }>();
 
 type Track = {
@@ -97,8 +99,8 @@ async function pick(seeds: [string, string][]): Promise<Track | null> {
   return null;
 }
 
-async function playlist(q: string, seeds: [string, string][]) {
-  return cached(`pl:${q}|${JSON.stringify(seeds)}`, async () => {
+async function playlist(q: string, seeds: [string, string][], opts: { strict?: boolean; alt?: string | null } = {}) {
+  return cached(`pl:${q}|${opts.strict ? "s" : ""}|${opts.alt ?? ""}|${JSON.stringify(seeds)}`, async () => {
     const out: Track[] = [];
     const seen = new Set<string>();
     const add = (t: Track | null) => {
@@ -114,12 +116,20 @@ async function playlist(q: string, seeds: [string, string][]) {
     // deno-lint-ignore no-explicit-any
     let pl: any = null;
     try {
-      const s = await dz("/search/playlist", { q, limit: "10" });
+      // strict: רק פלייליסט שהשם שלו באמת מכיל את שם הז׳אנר (אחרת "Mizrahi" מביא שירי חג מולד)
       // deno-lint-ignore no-explicit-any
-      const cands = (s.data ?? []).filter((p: any) => (p.nb_tracks ?? 0) >= 15 && p.public !== false);
-      // deno-lint-ignore no-explicit-any
-      cands.sort((a: any, b: any) => (b.fans ?? 0) - (a.fans ?? 0));
-      pl = cands[0] ?? null;
+      const find = async (query: string) => {
+        const s = await dz("/search/playlist", { q: query, limit: "25" });
+        const words = norm(query).split(" ").filter((w) => w.length >= 3);
+        // deno-lint-ignore no-explicit-any
+        const cands = (s.data ?? []).filter((p: any) => (p.nb_tracks ?? 0) >= (opts.strict ? 10 : 15) && p.public !== false &&
+          (!opts.strict || words.every((w) => norm(p.title ?? "").includes(w))));
+        // deno-lint-ignore no-explicit-any
+        cands.sort((a: any, b: any) => (b.fans ?? 0) - (a.fans ?? 0));
+        return cands[0] ?? null;
+      };
+      pl = await find(q);
+      if (!pl && opts.alt) pl = await find(opts.alt);
       if (pl) {
         const tr = await dz(`/playlist/${pl.id}/tracks`, { limit: "60" });
         const artistCount = new Map<string, number>();
@@ -206,6 +216,13 @@ Deno.serve(async (req: Request) => {
         const u = body && userKey(body.user_key);
         if (!u || typeof body.text !== "string") return json({ error: "bad talk" }, 400);
         return json(await talk({ ...body, user_key: u }), 200, true);
+      }
+      case "explore": {
+        if (req.method !== "POST") return json({ error: "POST" }, 405);
+        const body = await req.json().catch(() => null) as any;
+        const u = body && userKey(body.user_key);
+        if (!u) return json({ error: "bad explore" }, 400);
+        return json(await explore({ ...body, user_key: u }, { playlist }), 200, true);
       }
       case "playlist": {
         const q = (url.searchParams.get("q") ?? "").slice(0, 80);

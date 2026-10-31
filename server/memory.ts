@@ -1,7 +1,7 @@
 // הזיכרון של החבר: רגעים, לא פרופיל.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const sb = createClient(
+export const sb = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } },

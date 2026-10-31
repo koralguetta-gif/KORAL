@@ -586,7 +586,7 @@ function renderMix(mix) {
 }
 
 /* ===================== VERSION & ERRORS ===================== */
-const VERSION = 'v6';
+const VERSION = 'v7';
 window.addEventListener('error', e => { try { const d = document.getElementById('err') || Object.assign(document.body.appendChild(document.createElement('div')), { id: 'err' });
   d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;background:#ff4f7b;color:#fff;font:13px system-ui;padding:8px 12px;direction:ltr;text-align:left';
   d.textContent = 'שגיאה: ' + (e.message || e) + ' @' + (e.lineno || ''); } catch (x) {} });
@@ -694,10 +694,10 @@ const ROUND_TEXT = {
 
 /* ===================== STATE & SCREENS ===================== */
 let S;
-const freshState = (keep = {}) => ({ screen: 'build', dim: 'groove', cands: STYLES.map(s => s.id), asked: [], picks: [], mix: {}, opts: [], played: {}, hist: [], offset: 0, song: null, result: null, alts: [], guide: keep.guide || null, context: keep.context || null, chat: keep.chat || [] });
+const freshState = (keep = {}) => ({ screen: 'build', dim: 'groove', cands: STYLES.map(s => s.id), asked: [], picks: [], mix: {}, opts: [], played: {}, hist: [], offset: 0, song: null, ex: null, result: null, alts: [], guide: keep.guide || null, context: keep.context || null, chat: keep.chat || [] });
 S = freshState();
 const $app = document.getElementById('app');
-function render() { stop(); if (S.screen === 'build') renderBuild(); else if (S.screen === 'result') renderResult(); else if (S.screen === 'trust') renderTrust(); window.scrollTo(0, 0); }
+function render() { stop(); if (S.screen === 'build') renderBuild(); else if (S.screen === 'result') renderResult(); else if (S.screen === 'trust') renderTrust(); else if (S.screen === 'explore') renderExplore(); else if (S.screen === 'exresult') renderExResult(); window.scrollTo(0, 0); }
 function alertish(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
 
 const CLIPS = {};
@@ -770,13 +770,16 @@ function choose(v) {
   if (o.seed) S.song = o.seed;
   S.extra = null; S.shownSongs = [];
   S.played = {}; S.offset = 0;
+  if (dim === 'groove' && USE_EXPLORE) return startExplore(o.n);
   const nd = nextDim(); if (!nd) return finish(); S.dim = nd; render();
 }
+const USE_EXPLORE = !/[?&]tree\b/.test(location.search);
 function goBack(keepGuide) { const h = S.hist.pop(); if (!h) return; const g = S.guide; Object.assign(S, JSON.parse(h)); S.screen = 'build'; S.played = {}; S.offset = 0; S.extra = null; S.shownSongs = []; if (keepGuide === true) S.guide = g; render(); }
 
 /* ===================== WORDS & VOICE ===================== */
 function handleText(raw) {
   const txt = (raw || '').trim(); if (!txt) return; const t = txt.toLowerCase();
+  if (S.screen === 'explore' || S.screen === 'exresult') { moment({ action: 'talk', layer: 'explore', meta: { text: txt } }); return exSay(txt); }
   const hits = []; STYLES.forEach(s => [...s.al, s.he].forEach(a => { const al = a.toLowerCase(), i = t.indexOf(al); if (i >= 0 && !/[א-תa-z]/.test(t[i + al.length] || ' ')) hits.push([s, al.length]); }));
   /* שם סגנון קצר ("טכנו") – ישר לשם, בלי לחכות למוח */
   if (hits.length && txt.length <= 25) { const s = hits.sort((a, b) => b[1] - a[1])[0][0]; moment({ action: 'talk', layer: S.dim, meta: { text: txt, named: s.id } }); return showStyle(s.id, `${s.he}. ככה הוא בנוי:`); }
@@ -887,6 +890,97 @@ function feedback(ok) {
   if (ok) { fb.innerHTML = `<div class="guide">רשמתי לי. ככה אני לומד אותך – רגע אחרי רגע.</div>`; return; }
   moment({ action: 'listen', layer: 'final', cell: S.result, reaction: 'no', meta: { cell_name: STYLE[S.result].he } });
   fb.innerHTML = `<div class="guide">תודה שאמרת. תגידי לי במילים מה חסר – אני אכוון מחדש.</div>`; document.getElementById('say').focus();
+}
+
+
+/* ===================== EXPLORE – הסוכן מנווט בכל הז׳אנרים בעולם ===================== */
+/* אחרי הביט, הסוכן (Sonnet) מתחקר אותה: 2–4 כיוונים עם שיר אמיתי לכל אחד, בוחרים ויורדים פנימה */
+let EXW = 0;
+function exState() { return S.ex || (S.ex = { family: null, steps: [], cur: null, played: [], busy: false }); }
+async function exploreStep(extra) {
+  const ex = exState(); if (ex.busy) return; ex.busy = true;
+  const my = ++EXW;
+  S.screen = 'explore'; renderExplore(true);
+  let r = null;
+  try {
+    const hist = ex.steps.map(st => ({ options: (st.options || []).map(o => ({ qid: o.qid, label: o.label })), chose: st.chose || null, none: !!st.none, said: st.said || null }));
+    const res = await fetch(API_BASE + '/api/explore', { method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(Object.assign({ user_key: UK, family: ex.family, history: hist, played: ex.played.slice(-60), context: S.context, text: extra && extra.text || null }, nowCtx())) });
+    r = res.ok ? await res.json() : null;
+  } catch (e) {}
+  ex.busy = false; if (my !== EXW) return;
+  if (!r || r.error || !r.options || !r.options.length) {
+    if (!ex.steps.length) { /* בלי מוח – חוזרים לעץ הרגיל */ S.screen = 'build'; S.guide = 'החיבור לחבר נפל לרגע, אז ממשיכים באוזן.'; const nd = nextDim(); if (!nd) return finish(); S.dim = nd; return render(); }
+    ex.cur = Object.assign({}, ex.cur || {}, { reply: (r && r.reply) || 'משהו נתקע לי. נסי שוב, או תכתבי לי מה בא לך.' });
+    return renderExplore();
+  }
+  ex.cur = { reply: r.reply, options: r.options, done: r.done };
+  if (r.done) { S.screen = 'exresult'; return renderExResult(); }
+  renderExplore();
+}
+function startExplore(family) { S.ex = { family, steps: [], cur: null, played: [], busy: false }; exploreStep(); }
+function exTrail() { const ex = exState(); return ex.steps.filter(st => st.chose).map(st => (st.options.find(o => o.qid === st.chose) || {}).label).filter(Boolean); }
+function renderExplore(loading) {
+  stop(); const ex = exState(), cur = ex.cur, trail = [ex.family].concat(exTrail()).filter(Boolean);
+  $app.innerHTML = `
+    <div class="top">${ex.steps.length || ex.family ? `<button class="back" onclick="exBack()">→ אחורה</button>` : '<span></span>'}
+      <button class="chip" onclick="S=freshState(S);render()">↺ מההתחלה</button></div>
+    ${trail.length ? `<div class="trail">${trail.map(esc).join(' · ')}</div>` : ''}
+    <div class="guide" id="agent">${loading ? '<span class="think">מקשיב למה שבחרת ומחפש את הכיוון הבא…</span>' : esc(cur && cur.reply || '')}</div>
+    ${loading ? `<div class="opts">${[0, 1, 2].map(() => '<div class="opt loading"><div class="row"><div class="play"><span class="tri">▶</span></div><div style="flex:1"><div class="shim"></div></div></div></div>').join('')}</div>` : `
+    <div class="opts">${(cur && cur.options || []).map((o, i) => `
+      <div class="opt" id="e-${i}" onclick="exTap(${i})">
+        <div class="row"><div class="play"><span class="tri">▶</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>
+        <div style="min-width:0;flex:1"><div class="name">${esc(o.label)}</div><div class="desc">${esc(o.hint || '')}</div>
+        <div class="trk">${esc(o.track.artist)} · ${esc(o.track.title)}</div></div></div>
+        <button class="choose" onclick="event.stopPropagation();exChoose(${i})">זה ✓</button></div>`).join('')}
+    </div>
+    <button class="btn ghost" onclick="exNone()">אף אחד מאלה ↻</button>`}
+    <div class="tiny">${ex.steps.length ? `צעד ${ex.steps.length + 1}` : 'מתחילים'} · מחר זה יכול להיות אחרת</div>`;
+  window.scrollTo(0, 0);
+}
+function exTap(i) {
+  prime(); const o = exState().cur.options[i], key = 'e' + i;
+  if (nowKey === key) { stop(); return; }
+  stop(); document.getElementById('e-' + i).classList.add('playing');
+  const ex = exState(); if (!ex.played.includes(o.track.id)) ex.played.push(o.track.id);
+  playURL(o.track.preview, key, true);
+}
+function exChoose(i) {
+  const ex = exState(), o = ex.cur.options[i];
+  ex.cur.options.forEach((x, j) => moment({ action: 'listen', layer: 'explore', cell: x.qid, reaction: j === i ? 'yes' : 'no', meta: { label: x.label, en: x.en } }));
+  ex.steps.push({ options: ex.cur.options, chose: o.qid, reply: ex.cur.reply });
+  exploreStep();
+}
+function exNone() { const ex = exState(); ex.steps.push({ options: ex.cur.options, none: true, reply: ex.cur.reply }); exploreStep(); }
+function exBack() {
+  const ex = exState(); EXW++; ex.busy = false;
+  const last = ex.steps.pop();
+  if (!last) { S = freshState(S); return render(); }
+  ex.cur = { reply: last.reply, options: last.options }; S.screen = 'explore'; renderExplore();
+}
+function exSay(txt) { const ex = exState(); if (ex.cur && ex.cur.options) ex.steps.push({ options: ex.cur.options, said: txt, reply: ex.cur.reply }); else ex.steps.push({ said: txt, options: [] }); exploreStep({ text: txt }); }
+function renderExResult() {
+  stop(); const ex = exState(), o = ex.cur.options[0], trail = [ex.family].concat(exTrail()).filter(Boolean);
+  const tracks = (o.tracks && o.tracks.length ? o.tracks : [o.track]).slice(0, 8);
+  PL = { tracks };
+  moment({ action: 'listen', layer: 'final', cell: o.qid, reaction: 'yes', meta: { cell_name: o.label, en: o.en, via: 'explore' } });
+  $app.innerHTML = `
+    <div class="top"><button class="back" onclick="exBack()">→ אחורה</button><button class="chip" onclick="S=freshState(S);render()">↺ מההתחלה</button></div>
+    <div class="guide" id="agent">${esc(ex.cur.reply || '')}</div>
+    <div class="res"><div class="k">מה שבא לך עכשיו קוראים לו</div>
+      <div class="name">${esc(o.label)}</div><div class="en">${esc(o.en || '')}</div>
+      ${trail.length ? `<div class="trail" style="margin:12px 0 0">${trail.map(esc).join(' · ')}</div>` : ''}
+      ${o.hint ? `<div class="tell">${esc(o.hint)}</div>` : ''}</div>
+    <div class="pl" id="pl"><h2>ככה זה נשמע</h2>${tracks.map((t, i) => `
+      <div class="tr" id="tr-${i}" onclick="playTr(${i})"><div class="cv">${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}<span>▶</span></div>
+      <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
+      <a class="yt" href="${ytSearch(t.artist + ' ' + t.title)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ יוטיוב</a></div>`).join('')}
+      <a class="mix" href="${ytSearch((o.en || o.label) + ' mix')}" target="_blank" rel="noopener">מיקס ${esc(o.label)} ביוטיוב ↗</a></div>
+    <div class="fb" id="fb"><button class="btn ok" onclick="document.getElementById('fb').innerHTML='<div class=\\'guide\\'>רשמתי לי. ככה אני לומד אותך.</div>'">פגעת ✓</button>
+      <button class="btn ghost" onclick="exSay('להמשיך לחפור עמוק יותר מכאן')">לחפור עוד</button></div>
+    <div class="tiny">מחר זה יכול להיות משהו אחר לגמרי. ככה זה אמור לעבוד.</div>`;
+  window.scrollTo(0, 0);
 }
 
 /* ===================== TRUST ===================== */
