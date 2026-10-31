@@ -5,16 +5,17 @@ import { me, recentMoments, agentNote, saveMoment, agentBudgetOk } from "./memor
 // המפתח נשמר ב־Supabase בשם api_antro; ANTHROPIC_API_KEY נתמך גם הוא
 const KEY = (Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("api_antro") || "").trim();
 // ברירת מחדל: Haiku 5.5 – מהיר וזול פי 20 מ־Sonnet. אפשר להחליף בלי קוד: סוד AGENT_MODEL ב־Supabase.
-const MODELS = [...new Set([Deno.env.get("AGENT_MODEL") || "claude-haiku-5-5", "claude-sonnet-5-5"])];
+const models = (fromCatalog?: string | null) => [...new Set([Deno.env.get("AGENT_MODEL") || fromCatalog || "claude-haiku-5-5", "claude-sonnet-5-5"])];
 export const agentReady = () => KEY.length > 20;
 
 // הקטלוג נבנה מ־styles.js ומוגש מהאתר (catalog.json) – מקור אמת אחד לאפליקציה ולסוכן
-let CAT: { ids: string[]; catalog: string; t: number } | null = null;
+// גם ההוראות (prompt) והמודל יושבים שם – שינוי בהתנהגות הסוכן = git push, בלי פריסה מחדש
+let CAT: { ids: string[]; catalog: string; prompt?: string; model?: string | null; t: number } | null = null;
 async function catalog() {
   if (CAT && Date.now() - CAT.t < 36e5) return CAT;
   const r = await fetch("https://koralguetta-gif.github.io/KORAL/catalog.json", { headers: { "cache-control": "no-cache" } });
   if (!r.ok) { if (CAT) return CAT; throw new Error("catalog " + r.status); }
-  const j = await r.json(); CAT = { ids: j.ids, catalog: j.catalog, t: Date.now() }; return CAT;
+  const j = await r.json(); CAT = { ids: j.ids, catalog: j.catalog, prompt: j.prompt, model: j.model, t: Date.now() }; return CAT;
 }
 
 const DAY = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
@@ -62,13 +63,13 @@ const TOOL = {
 
 type TalkBody = {
   user_key: string; text: string; local_hour?: number; weekday?: number; tz?: string; context?: string | null;
-  state?: { screen?: string; cands?: string[]; picks?: string[]; result?: string | null };
+  state?: { screen?: string; cands?: string[]; picks?: string[]; result?: string | null; result_id?: string | null; rounds?: number };
   chat?: { who: "her" | "me"; text: string }[];
 };
 
-async function callClaude(system: string, messages: unknown[]) {
+async function callClaude(system: string, messages: unknown[], modelList: string[]) {
   let last = "";
-  for (const model of MODELS) {
+  for (const model of modelList) {
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -89,7 +90,8 @@ export async function talk(b: TalkBody) {
   if (!agentReady()) return { error: "no key" };
   if (!(await agentBudgetOk(u))) return { reply: "דיברנו המון היום – בואי נמשיך באוזן, ומחר נדבר שוב.", action: "keep", ids: [] };
 
-  const { ids: IDS, catalog: CATALOG } = await catalog();
+  const cat = await catalog();
+  const { ids: IDS, catalog: CATALOG } = cat;
   const [mem, recent] = await Promise.all([me(u).catch(() => null), recentMoments(u, 30).catch(() => [])]);
   const st = b.state ?? {};
   const cands = (st.cands ?? []).filter((id) => IDS.includes(id));
@@ -99,7 +101,7 @@ export async function talk(b: TalkBody) {
     `כמה פעמים בחרנו ביחד עד היום: ${mem?.yes ?? 0}.`,
     mem?.notes?.length ? `מה אני כבר יודע עליה:\n- ${mem.notes.map((n: any) => n.note).join("\n- ")}` : "עוד אין לי הערות עליה.",
     recent.length ? `הרגעים האחרונים (חדש למעלה):\n${recent.join("\n")}` : "אין רגעים קודמים – זו הפעם הראשונה.",
-    `איפה היא באפליקציה: ${st.screen === "result" ? `מסך תוצאה – ${st.result}` : "באמצע ההקשבה"}.`,
+    `איפה היא עכשיו: ${st.screen === "result" ? `קיבלה תוצאה – ${st.result}${st.result_id ? ` (${st.result_id})` : ""}, אחרי ${st.rounds ?? "?"} בחירות` : `באמצע ההקשבה, אחרי ${st.rounds ?? 0} בחירות`}.`,
     st.picks?.length ? `מה בחרה בסבב הזה: ${st.picks.join(" · ")}` : "עוד לא בחרה כלום בסבב הזה.",
     st.screen !== "result" && cands.length && cands.length < IDS.length ? `סגנונות שעדיין פתוחים: ${cands.join(", ")}` : "",
     b.context ? `הקשר שאמרה קודם: ${b.context}` : "",
@@ -116,7 +118,8 @@ export async function talk(b: TalkBody) {
   const final = `[מה שאני יודע עכשיו]\n${about}\n\n[מה שהיא אמרה עכשיו]\n${text}`;
   if (msgs.length && msgs[msgs.length - 1].role === "user") msgs[msgs.length - 1].content += "\n\n" + final; else msgs.push({ role: "user", content: final });
 
-  const out: any = await callClaude(system(CATALOG), msgs);
+  const sys = cat.prompt ? cat.prompt.replace("{{CATALOG}}", CATALOG) : system(CATALOG);
+  const out: any = await callClaude(sys, msgs, models(cat.model));
   let action = ["keep", "narrow", "show"].includes(out.action) ? out.action : "keep";
   let ids = (Array.isArray(out.ids) ? out.ids : []).filter((id: string) => IDS.includes(id));
   if (action === "show" && !ids.length) action = "keep";

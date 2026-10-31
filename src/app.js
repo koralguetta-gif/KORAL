@@ -73,6 +73,12 @@ function optionsFor(dim) {
     const g = groupBy(c, s => s.palette[0]); if (Object.keys(g).length < 2) return [];
     return Object.entries(g).map(([p, ids]) => ({ v: p, n: LABELS.palette[p].n, d: LABELS.palette[p].d, ids, kind: 'clip', rep: ids[0] }));
   }
+  if (dim === 'songs') {
+    if (c.length > 4) return [];
+    const per = c.length === 1 ? 4 : c.length === 2 ? 2 : 1, out = [];
+    c.forEach(id => STYLE[id].seeds.slice(0, per).forEach(sd => out.push({ v: 's' + out.length, n: sd[1], d: sd[0] + (c.length > 1 ? ' · ' + STYLE[id].he : ''), ids: [id], kind: 'clip', seed: sd })));
+    return out.slice(0, 4);
+  }
   if (dim === 'vocal') {
     const g = groupBy(c, s => s.vocal); if (Object.keys(g).length < 2) return [];
     return Object.entries(g).map(([v, ids]) => ({ v, n: LABELS.vocal[v].n, d: LABELS.vocal[v].d, ids, kind: 'clip', rep: ids[0] }));
@@ -81,9 +87,13 @@ function optionsFor(dim) {
 }
 function nextDim() {
   if (!S.asked.includes('groove')) { if (optionsFor('groove').length >= 2) return 'groove'; S.asked = [...S.asked, 'groove']; }
-  if (S.asked.length >= 5 || S.cands.length < 2) return null;
-  const fam = STYLE[S.cands[0]].family;
-  for (const d of FAMILIES[fam].order) if (!S.asked.includes(d) && optionsFor(d).length >= 2) return d;
+  if (S.asked.length >= 5) return null;
+  if (S.cands.length >= 2 && S.asked.length < 4) {
+    const fam = STYLE[S.cands[0]].family;
+    for (const d of FAMILIES[fam].order) if (!S.asked.includes(d) && optionsFor(d).length >= 2) return d;
+  }
+  /* תמיד מסיימים בבחירה בין שירים אמיתיים – לא קופצים לתוצאה בלי לשמוע */
+  if (!S.asked.includes('songs') && optionsFor('songs').length >= 2) return 'songs';
   return null;
 }
 const ROUND_TEXT = {
@@ -92,11 +102,12 @@ const ROUND_TEXT = {
   bass:   { q: 'מה הבס עושה?', sub: 'אותו ביט ואותה מהירות. כאן נפרדים סגנונות קרובים.' },
   sound:  { q: 'איזה צליל?', sub: 'עכשיו קטעים אמיתיים. סמכי על השנייה הראשונה.' },
   vocal:  { q: 'ועל כל זה – מילים?', sub: 'קטעים אמיתיים. השכבה האחרונה.' },
+  songs:  { q: 'איזה מאלה מרגיש כמו עכשיו?', sub: 'שירים אמיתיים. הקשיבי כמה שניות לכל אחד.' },
 };
 
 /* ===================== STATE & SCREENS ===================== */
 let S;
-const freshState = (keep = {}) => ({ screen: 'build', dim: 'groove', cands: STYLES.map(s => s.id), asked: [], picks: [], mix: {}, opts: [], played: {}, hist: [], offset: 0, result: null, alts: [], guide: keep.guide || null, context: keep.context || null, chat: keep.chat || [] });
+const freshState = (keep = {}) => ({ screen: 'build', dim: 'groove', cands: STYLES.map(s => s.id), asked: [], picks: [], mix: {}, opts: [], played: {}, hist: [], offset: 0, song: null, result: null, alts: [], guide: keep.guide || null, context: keep.context || null, chat: keep.chat || [] });
 S = freshState();
 const $app = document.getElementById('app');
 function render() { stop(); if (S.screen === 'build') renderBuild(); else if (S.screen === 'result') renderResult(); else if (S.screen === 'trust') renderTrust(); window.scrollTo(0, 0); }
@@ -104,8 +115,10 @@ function alertish(m) { const t = document.getElementById('toast'); t.textContent
 
 const CLIPS = {};
 const clipFor = id => CLIPS[id] || (CLIPS[id] = api('pick', { s: STYLE[id].seeds }).then(t => { if (!t || !t.preview) throw new Error('no preview'); return t; }).catch(e => { delete CLIPS[id]; throw e; }));
+const SEEDCLIP = {};
+const seedClip = sd => SEEDCLIP[sd.join('|')] || (SEEDCLIP[sd.join('|')] = api('pick', { s: [sd] }).then(t => { if (!t || !t.preview) throw new Error('no preview'); return t; }).catch(e => { delete SEEDCLIP[sd.join('|')]; throw e; }));
 const PREP = {};
-function prepare(o) { if (PREP[o.v + S.dim]) return PREP[o.v + S.dim]; return (PREP[o.v + S.dim] = o.kind === 'loop' ? renderMix(o.mix).then(url => ({ url })) : clipFor(o.rep).then(t => ({ url: t.preview, track: t }))); }
+function prepare(o) { if (PREP[o.v + S.dim]) return PREP[o.v + S.dim]; return (PREP[o.v + S.dim] = o.kind === 'loop' ? renderMix(o.mix).then(url => ({ url })) : (o.seed ? seedClip(o.seed) : clipFor(o.rep)).then(t => ({ url: t.preview, track: o.seed ? null : t }))); }
 
 function renderBuild() {
   const dim = S.dim, R = ROUND_TEXT[dim], all = optionsFor(dim);
@@ -150,6 +163,7 @@ function choose(v) {
   S.hist.push(JSON.stringify({ dim: S.dim, cands: S.cands, asked: S.asked, picks: S.picks, mix: S.mix }));
   S.cands = o.ids; S.asked = [...S.asked, dim]; S.picks = [...S.picks, { dim, v, n: o.n }];
   if (o.mix) S.mix = o.mix;
+  if (o.seed) S.song = o.seed;
   S.played = {}; S.offset = 0;
   const nd = nextDim(); if (!nd) return finish(); S.dim = nd; render();
 }
@@ -173,7 +187,7 @@ async function askAgent(txt) {
   let r = null;
   try {
     const res = await fetch(API_BASE + '/api/talk', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.assign({ user_key: UK, text: txt, context: S.context, chat: S.chat.slice(-7, -1),
-      state: { screen: S.screen, cands: S.cands, picks: S.picks.map(p => p.n), result: S.result && STYLE[S.result] ? STYLE[S.result].he : null } }, nowCtx())) });
+      state: { screen: S.screen, cands: S.cands, picks: S.picks.map(p => p.n), rounds: S.asked.length, result: S.screen === 'result' && STYLE[S.result] ? STYLE[S.result].he : null, result_id: S.screen === 'result' ? S.result : null } }, nowCtx())) });
     r = res.ok ? await res.json() : null;
   } catch (e) {}
   thinking = false;
@@ -246,7 +260,8 @@ async function loadPlaylist(s) {
   const box = document.getElementById('pl'); PL = null;
   try {
     const r = await api('playlist', { q: s.q, s: s.seeds }); if (!document.getElementById('pl') || S.result !== s.id) return;
-    PL = r; const tr = (r.tracks || []).slice(0, 8); if (!tr.length) throw 0;
+    PL = r; if (S.song) { const n = x => String(x).toLowerCase().replace(/\(.*?\)/g, '').trim(), i = (r.tracks || []).findIndex(t => n(t.title).startsWith(n(S.song[1]))); if (i > 0) r.tracks.unshift(r.tracks.splice(i, 1)[0]); }
+    const tr = (r.tracks || []).slice(0, 8); if (!tr.length) throw 0;
     box.innerHTML = `<h2>ככה זה נשמע באמת</h2>${tr.map((t, i) => `
       <div class="tr" id="tr-${i}" onclick="playTr(${i})"><div class="cv">${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}<span>▶</span></div>
       <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
