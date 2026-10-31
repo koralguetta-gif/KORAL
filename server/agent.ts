@@ -2,7 +2,8 @@
 // ומחזיר תשובה קצרה בעברית ופעולה אחת על העץ.
 import { me, recentMoments, agentNote, saveMoment, agentBudgetOk } from "./memory.ts";
 
-const KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+// המפתח נשמר ב־Supabase בשם api_antro; ANTHROPIC_API_KEY נתמך גם הוא
+const KEY = (Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("api_antro") || "").trim();
 // ברירת מחדל: Haiku 5.5 – מהיר וזול פי 20 מ־Sonnet. אפשר להחליף בלי קוד: סוד AGENT_MODEL ב־Supabase.
 const MODELS = [...new Set([Deno.env.get("AGENT_MODEL") || "claude-haiku-5-5", "claude-sonnet-5-5"])];
 export const agentReady = () => KEY.length > 20;
