@@ -176,3 +176,36 @@ export async function agentBudgetOk(user_key: string) {
   ]);
   return (mine.count ?? 0) < 80 && (all.count ?? 0) < 1500;
 }
+
+/* ---------- השמורים שלה ---------- */
+const slimTrack = (t: any) => ({ id: Number(t?.id) || 0, title: String(t?.title ?? "").slice(0, 120), artist: String(t?.artist ?? "").slice(0, 120), cover: String(t?.cover ?? "").slice(0, 300) });
+export async function listSaved(user_key: string) {
+  const { data } = await sb.from("tadar_saved").select("id,kind,label,en,qid,query,hint,trail,tracks,near,local_hour,weekday,created_at").eq("user_key", user_key).order("created_at", { ascending: false }).limit(200);
+  return { saved: data ?? [] };
+}
+export async function addSaved(user_key: string, b: any) {
+  const kind = b?.kind === "track" ? "track" : "style";
+  const tracks = (Array.isArray(b?.tracks) ? b.tracks : []).slice(0, 20).map(slimTrack).filter((t: any) => t.id);
+  if (kind === "track" && tracks.length) {
+    const { data: ex } = await sb.from("tadar_saved").select("id").eq("user_key", user_key).eq("kind", "track").contains("tracks", [{ id: tracks[0].id }]).maybeSingle();
+    if (ex) return { id: ex.id, existed: true };
+  }
+  const row = {
+    user_key, kind, label: String(b?.label ?? "").slice(0, 80) || "שמור", en: b?.en ? String(b.en).slice(0, 120) : null,
+    qid: b?.qid ? String(b.qid).slice(0, 120) : null, query: b?.query ? String(b.query).slice(0, 120) : null, hint: b?.hint ? String(b.hint).slice(0, 200) : null,
+    trail: (Array.isArray(b?.trail) ? b.trail : []).slice(0, 12).map((x: any) => String(x).slice(0, 60)),
+    tracks, near: (Array.isArray(b?.near) ? b.near : []).slice(0, 6),
+    local_hour: typeof b?.local_hour === "number" ? b.local_hour : null, weekday: typeof b?.weekday === "number" ? b.weekday : null,
+  };
+  const { data, error } = await sb.from("tadar_saved").insert(row).select("id").single();
+  if (error) throw new Error(error.message);
+  // שמירה = "כן" חזק – נכנס לזיכרון כרגע
+  await saveMoment({ user_key, action: "listen", layer: "final", cell: row.qid ?? row.label, reaction: "yes", local_hour: row.local_hour, weekday: row.weekday,
+    track_id: kind === "track" ? tracks[0]?.id ?? null : null, track_title: kind === "track" ? tracks[0]?.title ?? null : null, track_artist: kind === "track" ? tracks[0]?.artist ?? null : null,
+    meta: { cell_name: row.label, saved: kind, trail: row.trail } }).catch(() => {});
+  return { id: data.id };
+}
+export async function removeSaved(user_key: string, id: number) {
+  await sb.from("tadar_saved").delete().eq("user_key", user_key).eq("id", id);
+  return { ok: true };
+}

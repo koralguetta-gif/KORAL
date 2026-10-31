@@ -3,7 +3,7 @@
 // GET  <fn>/api/pick?s=[[artist,title],...]       → first seed that has a 30s preview
 // GET  <fn>/api/playlist?q=<query>&s=[[a,t],...]  → playlist + up to 12 tracks with previews
 // GET  <fn>/api/health
-import { saveMoment, me, trust, tellNote, type Moment } from "./memory.ts";
+import { saveMoment, me, trust, tellNote, listSaved, addSaved, removeSaved, type Moment } from "./memory.ts";
 import { talk, agentReady } from "./agent.ts";
 import { explore } from "./explore.ts";
 
@@ -223,6 +223,25 @@ Deno.serve(async (req: Request) => {
         const u = body && userKey(body.user_key);
         if (!u) return json({ error: "bad explore" }, 400);
         return json(await explore({ ...body, user_key: u }, { playlist }), 200, true);
+      }
+      case "saved": {
+        const u = userKey(url.searchParams.get("u"));
+        if (!u) return json({ error: "no user" }, 400);
+        return json(await listSaved(u), 200, true);
+      }
+      case "save": {
+        if (req.method !== "POST") return json({ error: "POST" }, 405);
+        const body = await req.json().catch(() => null) as any;
+        const u = body && userKey(body.user_key);
+        if (!u) return json({ error: "no user" }, 400);
+        return json(await addSaved(u, body), 200, true);
+      }
+      case "unsave": {
+        if (req.method !== "POST") return json({ error: "POST" }, 405);
+        const body = await req.json().catch(() => null) as any;
+        const u = body && userKey(body.user_key);
+        if (!u || !Number(body.id)) return json({ error: "bad unsave" }, 400);
+        return json(await removeSaved(u, Number(body.id)), 200, true);
       }
       case "playlist": {
         const q = (url.searchParams.get("q") ?? "").slice(0, 80);

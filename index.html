@@ -77,6 +77,10 @@ body{background:radial-gradient(900px 500px at 50% -20%,#1d1442 0%,var(--bg) 65%
 .opt.loading .play{opacity:.45}.opt.broken{opacity:.45}
 .trk{font-size:12px;color:var(--muted);margin-top:4px;direction:ltr;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .guide .her{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.guide .her::before{content:"את: "}.guide .think{animation:blink 1.2s infinite}@keyframes blink{50%{opacity:.4}}.guide .mem{display:block;font-size:12px;color:var(--ok);margin-top:6px}
+.hrt{background:none;border:0;color:var(--a);font-size:20px;padding:4px 6px;cursor:pointer}.hrt.on,.hrt:disabled{opacity:1}
+.sv .svh{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.sv .name{font-size:20px}
+.x{background:none;border:0;color:var(--muted);font-size:16px;padding:6px;cursor:pointer}
+.top .chip{padding:7px 11px}
 .toast{position:fixed;left:50%;bottom:90px;transform:translate(-50%,20px);background:#2a2a44;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;opacity:0;transition:.25s;z-index:9;pointer-events:none}.toast.show{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
@@ -697,7 +701,7 @@ let S;
 const freshState = (keep = {}) => ({ screen: 'build', dim: 'groove', cands: STYLES.map(s => s.id), asked: [], picks: [], mix: {}, opts: [], played: {}, hist: [], offset: 0, song: null, ex: null, result: null, alts: [], guide: keep.guide || null, context: keep.context || null, chat: keep.chat || [] });
 S = freshState();
 const $app = document.getElementById('app');
-function render() { stop(); if (S.screen === 'build') renderBuild(); else if (S.screen === 'result') renderResult(); else if (S.screen === 'trust') renderTrust(); else if (S.screen === 'explore') renderExplore(); else if (S.screen === 'exresult') renderExResult(); window.scrollTo(0, 0); }
+function render() { stop(); if (S.screen === 'build') renderBuild(); else if (S.screen === 'result') renderResult(); else if (S.screen === 'trust') renderTrust(); else if (S.screen === 'explore') renderExplore(); else if (S.screen === 'exresult') renderExResult(); else if (S.screen === 'saved') renderSaved(); window.scrollTo(0, 0); }
 function alertish(m) { const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
 
 const CLIPS = {};
@@ -731,7 +735,7 @@ function renderBuild() {
   const greet = !ME ? '' : !ME.yes ? 'עוד לא מכיר אותך. אז לא אנחש – נתחיל מהביט, ואלמד ממה שתבחרי.' : `בחרנו ביחד ${ME.yes === 1 ? 'פעם אחת' : ME.yes + ' פעמים'}. אני מתחיל להכיר אותך.`;
   $app.innerHTML = `
     <div class="top">${S.hist.length ? `<button class="back" onclick="goBack()">→ אחורה</button>` : `<span class="tiny" style="margin:0">${VERSION}</span>`}
-      <button class="chip" onclick="S.screen='trust';render()">🤝 תסמוך עליי</button></div>
+      <span><button class="chip" onclick="openSaved()">♡ השמורים</button> <button class="chip" onclick="S.screen='trust';render()">🤝 תסמוך עליי</button></span></div>
     ${first && greet ? `<div class="hello">${esc(greet)}</div>` : ''}
     <div class="dots">${[0, 1, 2, 3, 4].map(i => `<i class="${i <= S.asked.length ? 'on' : ''}"></i>`).join('')}</div>
     ${S.picks.length ? `<div class="trail">${S.picks.map(p => esc(p.n)).join(' · ')}</div>` : ''}
@@ -861,7 +865,8 @@ function renderResult() {
       <div class="name">${s.he}</div><div class="en">${s.en}</div>
       <div class="trail" style="margin:12px 0 0">${S.picks.map(p => esc(p.n)).join(' · ')}</div>
       <button class="stack" id="stack" onclick="playStack()"><span class="eqs"><i></i><i></i><i></i></span> הביט שבחרת</button>
-      <div class="tell"><b>שימי לב:</b> ${s.tell}</div></div>
+      <div class="tell"><b>שימי לב:</b> ${s.tell}</div>
+      <button class="btn primary" style="margin-top:14px" onclick="saveStyle(this)">שמרי ♡</button></div>
     ${S.alts.length ? `<div class="guide">היה צמוד גם ל<b>${STYLE[S.alts[0]].he}</b>. <a href="#" onclick="event.preventDefault();showStyle('${S.alts[0]}')" style="color:var(--ok)">לשמוע גם אותו ←</a></div>` : ''}
     <div class="pl" id="pl"><h2>ככה זה נשמע באמת</h2><div class="shim"></div></div>
     <div class="fb" id="fb"><button class="btn ok" onclick="feedback(true)">פגעת ✓</button><button class="btn ghost" onclick="feedback(false)">לא בדיוק</button></div>
@@ -879,6 +884,7 @@ async function loadPlaylist(s) {
     box.innerHTML = `<h2>ככה זה נשמע באמת</h2>${tr.map((t, i) => `
       <div class="tr" id="tr-${i}" onclick="playTr(${i})"><div class="cv">${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}<span>▶</span></div>
       <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
+      <button class="hrt" onclick="saveTrack(${i},event)" aria-label="שמירה">♡</button>
       <a class="yt" href="${ytSearch(t.artist + ' ' + t.title)}" target="_blank" rel="noopener" onclick="event.stopPropagation();openYT(${i})">▶ יוטיוב</a></div>`).join('')}
       <a class="mix" href="${ytSearch(s.en + ' mix')}" target="_blank" rel="noopener">מיקס ${esc(s.he)} ביוטיוב ↗</a>`;
   } catch (e) { if (box) box.innerHTML = `<h2>ככה זה נשמע באמת</h2><div class="desc">לא הצלחתי לטעון שירים כרגע.</div><a class="mix" href="${ytSearch(s.en + ' mix')}" target="_blank" rel="noopener">מיקס ${esc(s.he)} ביוטיוב ↗</a>`; }
@@ -924,7 +930,7 @@ function renderExplore(loading) {
   stop(); const ex = exState(), cur = ex.cur, trail = [ex.family].concat(exTrail()).filter(Boolean);
   $app.innerHTML = `
     <div class="top">${ex.steps.length || ex.family ? `<button class="back" onclick="exBack()">→ אחורה</button>` : '<span></span>'}
-      <button class="chip" onclick="S=freshState(S);render()">↺ מההתחלה</button></div>
+      <span><button class="chip" onclick="openSaved()">♡</button> <button class="chip" onclick="S=freshState(S);render()">↺ מההתחלה</button></span></div>
     ${trail.length ? `<div class="trail">${trail.map(esc).join(' · ')}</div>` : ''}
     <div class="guide" id="agent">${loading ? '<span class="think">מקשיב למה שבחרת ומחפש את הכיוון הבא…</span>' : esc(cur && cur.reply || '')}</div>
     ${loading ? `<div class="opts">${[0, 1, 2].map(() => '<div class="opt loading"><div class="row"><div class="play"><span class="tri">▶</span></div><div style="flex:1"><div class="shim"></div></div></div></div>').join('')}</div>` : `
@@ -966,15 +972,17 @@ function renderExResult() {
   PL = { tracks };
   moment({ action: 'listen', layer: 'final', cell: o.qid, reaction: 'yes', meta: { cell_name: o.label, en: o.en, via: 'explore' } });
   $app.innerHTML = `
-    <div class="top"><button class="back" onclick="exBack()">→ אחורה</button><button class="chip" onclick="S=freshState(S);render()">↺ מההתחלה</button></div>
+    <div class="top"><button class="back" onclick="exBack()">→ אחורה</button><span><button class="chip" onclick="openSaved()">♡ השמורים</button> <button class="chip" onclick="S=freshState(S);render()">↺</button></span></div>
     <div class="guide" id="agent">${esc(ex.cur.reply || '')}</div>
     <div class="res"><div class="k">מה שבא לך עכשיו קוראים לו</div>
       <div class="name">${esc(o.label)}</div><div class="en">${esc(o.en || '')}</div>
       ${trail.length ? `<div class="trail" style="margin:12px 0 0">${trail.map(esc).join(' · ')}</div>` : ''}
-      ${o.hint ? `<div class="tell">${esc(o.hint)}</div>` : ''}</div>
+      ${o.hint ? `<div class="tell">${esc(o.hint)}</div>` : ''}
+      <button class="btn primary" style="margin-top:14px" onclick="saveStyle(this)">שמרי ♡</button></div>
     <div class="pl" id="pl"><h2>ככה זה נשמע</h2>${tracks.map((t, i) => `
       <div class="tr" id="tr-${i}" onclick="playTr(${i})"><div class="cv">${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}<span>▶</span></div>
       <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div>
+      <button class="hrt" onclick="saveTrack(${i},event)" aria-label="שמירה">♡</button>
       <a class="yt" href="${ytSearch(t.artist + ' ' + t.title)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ יוטיוב</a></div>`).join('')}
       <a class="mix" href="${ytSearch((o.en || o.label) + ' mix')}" target="_blank" rel="noopener">מיקס ${esc(o.label)} ביוטיוב ↗</a></div>
     ${(ex.cur.near || []).length ? `<div class="alt"><div class="k">קרובים לזה – לזוז הצידה</div><div class="nbs">${ex.cur.near.map(n => `<button class="nb" onclick="exSay('בואי נלך לכיוון ${esc(n.label).replace(/'/g, '')}')">${esc(n.label)}</button>`).join('')}</div></div>` : ''}
@@ -983,6 +991,71 @@ function renderExResult() {
     <div class="tiny">מחר זה יכול להיות משהו אחר לגמרי. ככה זה אמור לעבוד.</div>`;
   window.scrollTo(0, 0);
 }
+
+
+/* ===================== השמורים שלי ===================== */
+let SAVED = null;
+const loadSaved = () => api('saved', { u: UK }).then(r => (SAVED = r.saved || [])).catch(() => (SAVED = SAVED || []));
+async function saveIt(item, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'שומר…'; }
+  const r = await post('save', Object.assign({ user_key: UK }, nowCtx(), item));
+  if (btn) { btn.textContent = r && r.id ? (item.kind === 'track' ? '♥' : 'נשמר ♥') : 'לא נשמר – נסי שוב'; btn.disabled = !!(r && r.id); if (r && r.id) btn.classList.add('on'); }
+  if (r && r.id) { SAVED = null; alertish(item.kind === 'track' ? 'השיר נשמר אצלך' : 'נשמר בשמורים שלך'); }
+}
+function saveTrack(i, ev) {
+  ev.stopPropagation(); const t = PL && PL.tracks[i]; if (!t) return;
+  saveIt({ kind: 'track', label: t.title, en: t.artist, tracks: [t], trail: S.ex ? [S.ex.family].concat(exTrail()).filter(Boolean) : S.picks.map(p => p.n) }, ev.currentTarget);
+}
+function saveStyle(btn) {
+  if (S.screen === 'exresult') {
+    const ex = exState(), o = ex.cur.options[0];
+    return saveIt({ kind: 'style', label: o.label, en: o.en, qid: o.qid, query: o.query, hint: o.hint, trail: [ex.family].concat(exTrail()).filter(Boolean), tracks: (PL && PL.tracks) || [], near: ex.cur.near || [] }, btn);
+  }
+  const st = STYLE[S.result];
+  saveIt({ kind: 'style', label: st.he, en: st.en, query: st.q, hint: st.tell, trail: S.picks.map(p => p.n), tracks: (PL && PL.tracks) || [] }, btn);
+}
+const DAYS = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+function whenText(it) { const d = new Date(it.created_at); const today = new Date().toDateString() === d.toDateString();
+  return (today ? 'היום' : `יום ${DAYS[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}`) + ` · ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
+async function renderSaved() {
+  stop(); S.screen = 'saved';
+  $app.innerHTML = `<div class="top"><button class="back" onclick="S.screen=S.prev||'build';render()">→ חזרה</button><span class="tiny" style="margin:0">השמורים שלי</span></div><div class="shim"></div>`;
+  if (!SAVED) await loadSaved(); if (S.screen !== 'saved') return;
+  const styles = SAVED.filter(x => x.kind === 'style'), tracks = SAVED.filter(x => x.kind === 'track');
+  $app.innerHTML = `
+    <div class="top"><button class="back" onclick="S.screen=S.prev||'build';render()">→ חזרה</button><span></span></div>
+    <div class="q">השמורים שלי</div>
+    <div class="sub">${SAVED.length ? 'מה שאהבת, ומתי. זה לא "מי את" – אלה רגעים.' : 'עוד לא שמרת כלום. בסוף כל חיפוש יש "שמרי ♡", וליד כל שיר יש ♡.'}</div>
+    ${styles.map(it => `
+      <div class="pl sv" id="sv-${it.id}">
+        <div class="svh"><div><div class="name">${esc(it.label)}</div><div class="desc">${esc(whenText(it))}${it.trail && it.trail.length ? ' · ' + it.trail.map(esc).join(' › ') : ''}</div></div>
+          <button class="x" onclick="unsave(${it.id})" aria-label="מחיקה">✕</button></div>
+        ${it.hint ? `<div class="desc" style="margin:6px 0">${esc(it.hint)}</div>` : ''}
+        ${(it.tracks || []).slice(0, 5).map(t => `<div class="tr" id="svt-${it.id}-${t.id}" onclick="playSaved(${t.id},'svt-${it.id}-${t.id}')"><div class="cv">${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}<span>▶</span></div>
+          <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)}</span></div><a class="yt" href="${ytSearch(t.artist + ' ' + t.title)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶ יוטיוב</a></div>`).join('')}
+        <div class="fb" style="margin-top:10px"><button class="btn ghost" onclick="digFrom(${it.id})">לחפור מכאן</button>
+          <a class="btn ghost" style="text-align:center;text-decoration:none" href="${ytSearch((it.en || it.label) + ' mix')}" target="_blank" rel="noopener">מיקס ביוטיוב ↗</a></div>
+      </div>`).join('')}
+    ${tracks.length ? `<div class="pl"><h2>שירים ששמרת</h2>${tracks.map(it => { const t = (it.tracks || [])[0] || {}; return `
+      <div class="tr" id="svt-${it.id}-${t.id}" onclick="playSaved(${t.id},'svt-${it.id}-${t.id}')"><div class="cv">${t.cover ? `<img src="${esc(t.cover)}" alt="" onerror="this.remove()">` : ''}<span>▶</span></div>
+      <div class="t"><b>${esc(t.title)}</b><span>${esc(t.artist)} · ${esc(whenText(it))}</span></div>
+      <a class="yt" href="${ytSearch(t.artist + ' ' + t.title)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">▶</a>
+      <button class="x" onclick="event.stopPropagation();unsave(${it.id})" aria-label="מחיקה">✕</button></div>`; }).join('')}</div>` : ''}`;
+  window.scrollTo(0, 0);
+}
+async function playSaved(id, elId) {
+  if (nowKey === elId) { stop(); return; }
+  stop(); const el = document.getElementById(elId); if (el) el.classList.add('playing');
+  try { const t = await api('track', { id: String(id) }); if (!t || !t.preview) throw 0; if (el && el.classList.contains('playing')) playURL(t.preview, elId, true); }
+  catch (e) { if (el) el.classList.remove('playing'); alertish('השיר לא זמין כרגע'); }
+}
+async function unsave(id) { await post('unsave', { user_key: UK, id }); SAVED = (SAVED || []).filter(x => x.id !== id); renderSaved(); }
+function digFrom(id) {
+  const it = (SAVED || []).find(x => x.id === id); if (!it) return;
+  S = freshState(S); S.ex = { family: (it.trail || [])[0] || null, steps: [], cur: null, played: [], busy: false };
+  exploreStep({ text: `שמרתי פעם את "${it.label}"${it.trail && it.trail.length ? ' (הגעתי דרך ' + it.trail.join(' › ') + ')' : ''}. בוא נחפור משם הלאה – כיוונים חדשים בתוך העולם הזה.` });
+}
+function openSaved() { S.prev = S.screen === 'saved' ? S.prev : S.screen; renderSaved(); }
 
 /* ===================== TRUST ===================== */
 async function renderTrust() {
