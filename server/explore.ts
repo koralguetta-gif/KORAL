@@ -118,7 +118,29 @@ export async function explore(b: Body, deps: Deps) {
     "עכשיו: תסתכל במסד ותציג את הצעד הבא.",
   ].filter(Boolean).join("\n\n");
 
-  const messages: any[] = [{ role: "user", content: user }];
+  // מהירות: מסתכלים במסד מראש (במקום שהסוכן יבקש look ויחכה לסיבוב נוסף)
+  const ENTRY: Record<string, string[]> = {
+    "ארבע על הרצפה": ["house music", "techno", "trance", "electronic dance music", "disco"],
+    "בקביט": ["rock music", "pop music", "soul", "rhythm and blues", "funk", "indie rock"],
+    "חצי־זמן": ["trap music", "dubstep", "hip-hop", "contemporary R&B"],
+    "שבור": ["drum and bass", "breakbeat", "UK garage", "jungle"],
+    "3+3+2": ["reggaeton", "Afrobeats", "Latin music", "dancehall"],
+    "רגאיי": ["reggae", "dub", "ska"],
+    "דום־טק": ["Mizrahi music", "Arabic pop", "Turkish pop", "raï", "music of the Middle East"],
+    "סווינג": ["jazz", "swing music", "bossa nova", "blues"],
+    "בלי ביט": ["classical music", "ambient music", "folk music", "singer-songwriter", "film score"],
+  };
+  const lastChosen = [...(b.history ?? [])].reverse().find((s) => s.chose)?.chose ?? null;
+  let pre = "";
+  try {
+    if (lastChosen && /^Q\d+$/.test(lastChosen)) {
+      pre = `מה יש במסד סביב הבחירה האחרונה (כבר בדקתי בשבילך – אין צורך ב־look עליה):\n${JSON.stringify(await lookGenre({ qid: lastChosen }))}`;
+    } else if (!(b.history ?? []).length && b.family && ENTRY[b.family]) {
+      const { data } = await sb.from("tadar_genres").select("qid,en,he,sitelinks").in("en", ENTRY[b.family]);
+      pre = `נקודות כניסה לביט שבחרה (כבר בדקתי – אפשר להציג ישר):\n${JSON.stringify((data ?? []).map((g: any) => ({ qid: g.qid, name: label(g), popularity: g.sitelinks })))}`;
+    }
+  } catch { /* look will happen the slow way */ }
+  const messages: any[] = [{ role: "user", content: pre ? user + "\n\n" + pre : user }];
   let usage: any[] = [];
   for (let turn = 0; turn < 7; turn++) {
     const res = await claude(conf, system, messages);

@@ -903,17 +903,28 @@ function feedback(ok) {
 /* אחרי הביט, הסוכן (Sonnet) מתחקר אותה: 2–4 כיוונים עם שיר אמיתי לכל אחד, בוחרים ויורדים פנימה */
 let EXW = 0;
 function exState() { return S.ex || (S.ex = { family: null, steps: [], cur: null, played: [], busy: false }); }
-async function exploreStep(extra) {
+function exRequest(steps, text) {
+  const ex = exState();
+  const hist = steps.map(st => ({ options: (st.options || []).map(o => ({ qid: o.qid, label: o.label })), chose: st.chose || null, none: !!st.none, said: st.said || null }));
+  return fetch(API_BASE + '/api/explore', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(Object.assign({ user_key: UK, family: ex.family, history: hist, played: ex.played.slice(-60), context: S.context, text: text || null }, nowCtx())) })
+    .then(res => res.ok ? res.json() : null).catch(() => null);
+}
+/* מהירות: אם היא מקשיבה לכיוון יותר מ־4 שניות – מתחילים להכין את הצעד הבא שלו ברקע */
+let PRE_T = null;
+function exPrefetch(i) {
+  const ex = exState(), o = ex.cur && ex.cur.options && ex.cur.options[i]; if (!o || ex.cur.done) return;
+  ex.pre = ex.pre || {}; const key = ex.steps.length + ':' + o.qid; if (ex.pre[key]) return;
+  ex.pre[key] = exRequest(ex.steps.concat([{ options: ex.cur.options, chose: o.qid }]));
+}
+async function exploreStep(extra, preKey) {
   const ex = exState(); if (ex.busy) return; ex.busy = true;
   const my = ++EXW;
   S.screen = 'explore'; renderExplore(true);
-  let r = null;
-  try {
-    const hist = ex.steps.map(st => ({ options: (st.options || []).map(o => ({ qid: o.qid, label: o.label })), chose: st.chose || null, none: !!st.none, said: st.said || null }));
-    const res = await fetch(API_BASE + '/api/explore', { method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(Object.assign({ user_key: UK, family: ex.family, history: hist, played: ex.played.slice(-60), context: S.context, text: extra && extra.text || null }, nowCtx())) });
-    r = res.ok ? await res.json() : null;
-  } catch (e) {}
+  const pending = preKey && ex.pre && ex.pre[preKey];
+  ex.pre = {};
+  let r = await (pending || exRequest(ex.steps, extra && extra.text));
+  if (!r && pending) r = await exRequest(ex.steps, extra && extra.text);
   ex.busy = false; if (my !== EXW) return;
   if (!r || r.error || !r.options || !r.options.length) {
     if (!ex.steps.length) { /* בלי מוח – חוזרים לעץ הרגיל */ S.screen = 'build'; S.guide = 'החיבור לחבר נפל לרגע, אז ממשיכים באוזן.'; const nd = nextDim(); if (!nd) return finish(); S.dim = nd; return render(); }
@@ -951,16 +962,18 @@ function exTap(i) {
   stop(); document.getElementById('e-' + i).classList.add('playing');
   const ex = exState(); if (!ex.played.includes(o.track.id)) ex.played.push(o.track.id);
   playURL(o.track.preview, key, true);
+  clearTimeout(PRE_T); PRE_T = setTimeout(() => { if (nowKey === key) exPrefetch(i); }, 4000);
 }
 function exChoose(i) {
   const ex = exState(), o = ex.cur.options[i];
   ex.cur.options.forEach((x, j) => moment({ action: 'listen', layer: 'explore', cell: x.qid, reaction: j === i ? 'yes' : 'no', meta: { label: x.label, en: x.en } }));
+  const preKey = ex.steps.length + ':' + o.qid;
   ex.steps.push({ options: ex.cur.options, chose: o.qid, reply: ex.cur.reply });
-  exploreStep();
+  clearTimeout(PRE_T); exploreStep(null, preKey);
 }
 function exNone() { const ex = exState(); ex.steps.push({ options: ex.cur.options, none: true, reply: ex.cur.reply }); exploreStep(); }
 function exBack() {
-  const ex = exState(); EXW++; ex.busy = false;
+  const ex = exState(); EXW++; ex.busy = false; ex.pre = {};
   const last = ex.steps.pop();
   if (!last) { S = freshState(S); return render(); }
   ex.cur = { reply: last.reply, options: last.options }; S.screen = 'explore'; renderExplore();
